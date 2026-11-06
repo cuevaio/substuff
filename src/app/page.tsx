@@ -2,7 +2,6 @@
 
 import {
   ArrowDownToLine,
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -18,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { BufferPanel, BufferPreferences } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,6 +117,7 @@ export default function Home() {
   const revision = useRef(0);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
   const cloudPaused = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const article = articles.find((a) => a.id === activeId) ?? articles[0];
   const approved = article?.notes.filter((n) => n.approved) ?? [];
@@ -133,7 +134,9 @@ export default function Home() {
         setSaveState("unavailable");
       }
       try {
-        const response = await fetch("/api/workspace");
+        const response = await fetch("/api/workspace", {
+          signal: AbortSignal.timeout(10000),
+        });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         if (data.storage === "cloud") {
@@ -147,6 +150,27 @@ export default function Home() {
           if (restored) {
             setArticles(restored.articles);
             setActiveId(restored.activeId);
+          }
+          const bufferResult = new URLSearchParams(window.location.search).get(
+            "buffer",
+          );
+          if (bufferResult) {
+            const messages: Record<string, string> = {
+              connected: "Buffer connected. Your Notes are ready to review.",
+              cancelled: "Connection cancelled. Your drafts are safe.",
+              expired: "That connection attempt expired. Please try again.",
+              account:
+                "This workspace belongs to a different Buffer account. Use a separate browser profile to connect another account.",
+              conflict:
+                "Your workspace changed in another tab. Please reconnect.",
+              full: "This account’s workspace is full. Export some articles before connecting.",
+              error:
+                "Buffer connection failed. Your drafts are safe; please try again.",
+            };
+            setToast(messages[bufferResult] || messages.error);
+            if (bufferResult === "connected" && restored?.articles.length)
+              setModal("review");
+            window.history.replaceState({}, "", "/");
           }
         } else if (local) {
           setArticles(local.articles);
@@ -212,8 +236,52 @@ export default function Home() {
         });
       }
     }, 350);
+    saveTimer.current = timeout;
     return () => clearTimeout(timeout);
   }, [articles, activeId, loaded, cloud]);
+
+  async function flushWorkspace() {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (!cloud || cloudPaused.current)
+      throw new Error(
+        "Cloud save is paused. Export your edits and reload before connecting or sending.",
+      );
+    const document = { version: 1 as const, articles, activeId };
+    try {
+      localStorage.setItem(STORAGE, JSON.stringify(document));
+    } catch {
+      /* Cloud save can still succeed. */
+    }
+    const operation = saveQueue.current.then(async () => {
+      if (cloudPaused.current)
+        throw new Error(
+          "Cloud save is paused. Export a copy before reloading.",
+        );
+      setSaveState("saving");
+      const response = await fetch("/api/workspace", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document, revision: revision.current }),
+        signal: AbortSignal.timeout(12000),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Your edits couldn’t be saved.");
+      revision.current = data.revision;
+      setSaveState("saved");
+    });
+    saveQueue.current = operation.catch(() => {});
+    try {
+      await operation;
+    } catch (cause) {
+      cloudPaused.current = true;
+      setSaveState("unavailable");
+      setSaveError(
+        cause instanceof Error ? cause.message : "Cloud save paused.",
+      );
+      throw cause;
+    }
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -864,37 +932,11 @@ export default function Home() {
 
       {modal === "review" && article && (
         <Dialog title="Ready when you are." onClose={() => setModal(null)}>
-          <p className="dialog-description">
-            {approved.length} approved{" "}
-            {approved.length === 1 ? "Note" : "Notes"} from “{article.title}”.
-          </p>
-          <ol className="approved-preview">
-            {approved.map((note) => (
-              <li key={note.id}>{note.text}</li>
-            ))}
-          </ol>
-          <div className="buffer-notice">
-            <span className="buffer-mark">≋</span>
-            <div>
-              <span>Scheduling comes next.</span>
-              <p>
-                Buffer isn’t connected in this build. Export your approved Notes
-                to use them anywhere. Nothing has been scheduled.
-              </p>
-            </div>
-          </div>
-          <div className="dialog-actions">
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => setModal(null)}
-            >
-              <ArrowLeft size={15} /> Keep editing
-            </button>
-            <button type="button" className="button primary" onClick={download}>
-              <ArrowDownToLine size={16} /> Export Notes
-            </button>
-          </div>
+          <BufferPanel
+            article={article}
+            beforeSend={flushWorkspace}
+            onExport={download}
+          />
         </Dialog>
       )}
 
@@ -910,7 +952,7 @@ export default function Home() {
             <span>Storage</span>
             <p>
               {cloud
-                ? "Drafts are saved privately in Neon, with a backup on this device. Access is tied to this browser’s cookie for 30 days, not a login. Export anything you want to keep."
+                ? "Drafts are saved privately in Neon, with a backup on this device. This browser keeps access for 30 days; connecting the same Buffer account can recover your workspace on another device."
                 : "Articles and edits stay in this browser. They aren’t synced across devices. Export anything you want to keep."}
             </p>
           </div>
@@ -924,9 +966,7 @@ export default function Home() {
           </div>
           <div className="settings-row">
             <span>Buffer</span>
-            <p>
-              Not connected. OAuth and live scheduling are the next build phase.
-            </p>
+            <BufferPreferences beforeConnect={flushWorkspace} />
           </div>
           <div className="dialog-actions">
             <button
@@ -948,7 +988,8 @@ export default function Home() {
             <div className="clear-confirm">
               <p>
                 This removes every article and edit from this workspace. Export
-                your approved Notes first.
+                your approved Notes first. It does not cancel posts already in
+                Buffer.
               </p>
               <button
                 className="button secondary"

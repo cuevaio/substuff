@@ -87,6 +87,7 @@ export async function PUT(request: Request) {
         document: input.data.document,
         revision: workspace.revision + 1,
         updatedAt: new Date(),
+        expiresAt: new Date(Date.now() + 30 * 86400000),
       })
       .where(
         and(

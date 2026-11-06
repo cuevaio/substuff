@@ -1,7 +1,12 @@
 import { lt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { generationLimits, workspaces } from "@/db/schema";
+import {
+  generationLimits,
+  oauthAttempts,
+  sessions,
+  workspaces,
+} from "@/db/schema";
 
 export async function GET(request: Request) {
   if (
@@ -11,6 +16,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const now = new Date();
+  await db().delete(oauthAttempts).where(lt(oauthAttempts.expiresAt, now));
+  await db().delete(sessions).where(lt(sessions.expiresAt, now));
   await db().delete(workspaces).where(lt(workspaces.expiresAt, now));
   await db()
     .delete(generationLimits)

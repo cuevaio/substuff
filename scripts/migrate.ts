@@ -10,4 +10,7 @@ const url =
     "utf8",
   ).trim();
 await migrate(drizzle(neon(url)), { migrationsFolder: "drizzle" });
+await neon(
+  url,
+)`GRANT SELECT, INSERT, UPDATE, DELETE ON workspaces, generation_limits, sessions, oauth_attempts, buffer_connections, buffer_accounts, deliveries TO substuff_app`;
 console.log("Drizzle migrations applied.");
