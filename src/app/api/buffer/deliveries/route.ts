@@ -11,6 +11,7 @@ import {
 } from "@/lib/buffer";
 import { approvedVersion, deliveryInput, deliveryKey } from "@/lib/delivery";
 import { claimQuota } from "@/lib/generation-limit";
+import { canSendThroughBuffer, noteAttachment } from "@/lib/note-attachment";
 import { digest, readSession, sameOrigin } from "@/lib/session";
 
 type Row = typeof deliveries.$inferSelect;
@@ -69,6 +70,16 @@ export async function GET(request: Request) {
           ["scheduled", "sending", "draft", "error"].includes(row.status),
       )
     ) {
+      if (
+        rows.length === 50 ||
+        rows.filter(
+          (row) =>
+            row.bufferPostId &&
+            ["scheduled", "sending", "draft", "error"].includes(row.status),
+        ).length > 10
+      )
+        warning =
+          "This refresh is bounded. Some Notes still show their last confirmed status; check Buffer for the complete live queue.";
       const token = await accessToken(workspace.id);
       for (const row of rows
         .filter(
@@ -171,6 +182,14 @@ export async function POST(request: Request) {
         },
         { status: 409 },
       );
+    if (notes.some((note) => note && !canSendThroughBuffer(note)))
+      return NextResponse.json(
+        {
+          error:
+            "Buffer publishes plain text only. Copy formatted Notes to Substack, or remove formatting before sending.",
+        },
+        { status: 409 },
+      );
     if (!(await claimQuota(request, "publish", 100)))
       return NextResponse.json(
         {
@@ -250,6 +269,7 @@ export async function POST(request: Request) {
             : {}),
           aiAssisted: article?.mode === "ai",
           source: "substuff",
+          ...(article ? noteAttachment(article) : {}),
         };
         const { createPost } = await graphql<{
           createPost: {

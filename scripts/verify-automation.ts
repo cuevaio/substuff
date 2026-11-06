@@ -51,6 +51,12 @@ globalThis.fetch = (async (input, options) => {
     const body = JSON.parse(String(options?.body));
     assert.equal(body.variables.input.mode, "shareNow");
     assert.equal(body.variables.input.saveToDraft, false);
+    assert.ok(
+      body.variables.input.metadata.substack.linkAttachment.url.startsWith(
+        "https://qa-test.substack.com/p/",
+      ),
+    );
+    assert.equal(body.variables.input.text.includes("https://"), false);
     if (unknown) throw new TypeError("QA simulated lost confirmation");
     return Response.json({
       data: {

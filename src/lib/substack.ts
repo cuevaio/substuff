@@ -1,5 +1,6 @@
 import { load } from "cheerio";
 import { z } from "zod";
+import { sanitizeArticleHtml } from "./article-html";
 import { articleInput } from "./content";
 import { parseSubstackUrl } from "./substack-url";
 
@@ -44,6 +45,10 @@ export function extractPublishedPost(payload: unknown, sourceUrl: string) {
   }
   const $ = load(post.body_html);
   $(
+    "script, style, noscript, iframe, .subscription-widget-wrap, .button-wrapper, .captioned-button-wrap, .paywall",
+  ).remove();
+  const contentHtml = sanitizeArticleHtml($("body").html() || "");
+  $(
     "script, style, noscript, iframe, figure, .subscription-widget-wrap, .button-wrapper, .captioned-button-wrap, .paywall",
   ).remove();
   $("br").replaceWith("\n");
@@ -61,7 +66,11 @@ export function extractPublishedPost(payload: unknown, sourceUrl: string) {
         ? "This post is too long to import right now."
         : "There isn’t enough article text in this post.",
     );
-  return { ...article.data, sourceUrl: parseSubstackUrl(sourceUrl).url };
+  return {
+    ...article.data,
+    ...(contentHtml.length <= 500000 ? { contentHtml } : {}),
+    sourceUrl: parseSubstackUrl(sourceUrl).url,
+  };
 }
 
 export async function importSubstackPost(value: string, request = fetch) {

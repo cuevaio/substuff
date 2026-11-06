@@ -55,6 +55,18 @@ assert.equal(
   (await (await fetch(`${origin}/api/workspace`)).json()).document,
   null,
 );
+for (const path of ["/api/schedule", "/api/posts/unknown/source"])
+  assert.equal((await fetch(`${origin}${path}`)).status, 401);
+for (const path of [
+  "/settings",
+  "/schedule?view=list",
+  "/import",
+  "/onboarding",
+]) {
+  const response = await fetch(`${origin}${path}`, { redirect: "manual" });
+  assert.equal(response.status, 307);
+  assert.equal(response.headers.get("location"), "/");
+}
 for (const { path, method, body } of requests) {
   const denied: Response = await fetch(`${origin}${path}`, {
     method,

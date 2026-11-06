@@ -4,7 +4,7 @@ Your writing, continued. Anthony and Shiara's minimal article-to-Notes workspace
 
 ## Stack
 
-Next.js 16 · TypeScript · Bun 1.3.14 · Drizzle · Neon Postgres · AI SDK 7 · Vercel AI Gateway · shadcn/ui (Radix) · Biome · Husky · Vercel.
+Next.js 16 App Router · TypeScript · Bun 1.3.14 · Drizzle · Neon Postgres · AI SDK 7 · Vercel AI Gateway · TipTap · shadcn/ui (Radix) · Biome · Husky · Vercel.
 
 Mercury's onyx/ivory palette and cobalt primary action, with licensed Inter as the typography fallback. Flat editing surfaces, no nested cards, restrained motion following Emil Kowalski's design engineering skill.
 
@@ -34,6 +34,10 @@ Buffer sign-in and an active Substack channel are required. Actual AI generation
 - Continue with Buffer, connect an active Substack channel, then add your publication. No guest/demo entry point, article-creation or paste flow.
 - First-run onboarding streams real content-fetch, idea/voice-analysis and writing progress. The latest published post produces source-linked, unapproved suggestions; onboarding never auto-publishes.
 - Inline editing, approval invalidated on edit, copy, draft restore confirmation, approved-only export.
+- WYSIWYG Notes: bold, italic, strikethrough, inline/code blocks, bullet/numbered lists and quotes. Formatting is stored as bounded, validated rich documents and survives navigation/reload. Formatting-only edits also invalidate approval.
+- Compact split editor with no Note numbers and a hideable, independently scrolling formatted original. Imported HTML is allowlist-sanitized; existing plain-text imports can fetch their public formatted source without replacing saved edits.
+- Real Next.js pages: `/posts/[id]`, `/schedule`, `/settings`, `/import` and `/onboarding`. Next Link/router navigation shares a layout-level autosave provider, with direct URLs, browser history, loading/error/not-found states and no modal-only application navigation.
+- Schedule list/month-calendar views of substuff delivery receipts, publishing timezone labels, separate undated drafts, cancelled-Note exclusion and paginated history. Displayed text is the delivered snapshot, not a subsequently edited draft. This is not the entire cross-channel Buffer queue.
 - Drizzle/Neon account workspace with browser-local backup, serialized autosave, optimistic revision conflicts, clear-data control. Historical samples stay preserved in storage but are hidden from the product.
 - shadcn/Radix dialogs and button primitives with custom Mercury styling.
 - Biome, pre-commit/pre-push checks, GitHub CI, Vercel Git integration.
@@ -44,6 +48,14 @@ Buffer sign-in and an active Substack channel are required. Actual AI generation
 - Publication RSS import with a recent-post picker. Initial feed items are baselined, not silently imported/published; new posts are checked daily by the existing authenticated cron. Check now processes one pending import immediately.
 - Opt-in immediate Auto-publish: select the Substack channel, choose up to 1–3 Notes per post, and explicitly consent to public AI-written Notes without individual review. Default is off. Consent is versioned and rechecked before each send. Existing imported posts and previously queued draft-only jobs are not retroactively published.
 - Server-owned durable import jobs, exact original source passages resolved from model-selected passage IDs, safe interrupted-job handling, and protected sign-out/fresh-session workspace recovery.
+
+### Article previews and formatting
+
+New Buffer deliveries attach the canonical original article through `metadata.substack.linkAttachment`, never by appending its URL to the Note body. Both manual draft/schedule and automatic sends use the same attachment builder. Existing delivery keys are preserved, so this change cannot resend an already-recorded Note.
+
+**Buffer does not support rich-text Substack publishing.** Its official [Substack guide](https://support.buffer.com/articles/using-substack-with-buffer-lDbUYyIq4R) says Notes publish as plain text. The [Substack metadata input](https://developers.buffer.com/types/SubstackPostMetadataInput.md) supports a [separate link attachment](https://developers.buffer.com/types/LinkAttachmentInput.md), not a rich body. Current live GraphQL introspection confirmed these fields. Formatted Notes are therefore blocked from Buffer delivery, not silently flattened. Writers can copy rich HTML to Substack, or explicitly confirm conversion to plain text and approve again. Plain-text export remains labeled as an export, not formatted publication.
+
+Substack's [official formatting guide](https://support.substack.com/hc/en-us/articles/14742958406036-Can-I-format-text-on-Substack-Notes) documents native rich editing. Community descriptions of its private `bodyJson`/attachment API are not a supported replacement for Buffer OAuth; this app never collects a Substack password/session cookie or uses that private publishing path. Native clipboard paste/format retention and a live new link-card delivery remain separate acceptance checks; no extra public post was authorized for this change.
 
 ## Privacy and boundaries
 

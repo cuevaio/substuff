@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  type RichNode,
+  richDocumentSchema,
+  richTextToPlain,
+} from "./rich-text";
 import { parseSubstackUrl } from "./substack-url";
 
 export const articleInput = z.object({
@@ -39,6 +44,7 @@ export type Note = {
   original: string;
   source: string;
   approved: boolean;
+  richText?: RichNode;
 };
 
 export type Article = {
@@ -48,6 +54,7 @@ export type Article = {
   createdAt: string;
   mode: "sample" | "excerpts" | "ai";
   sourceUrl?: string;
+  contentHtml?: string;
   notes: Note[];
 };
 
@@ -60,6 +67,7 @@ export const workspaceSchema = z.object({
         id: z.string().max(100),
         title: z.string().max(180),
         content: z.string().max(60000),
+        contentHtml: z.string().max(500000).optional(),
         createdAt: z.string().max(40),
         mode: z.enum(["sample", "excerpts", "ai"]),
         sourceUrl: z
@@ -75,14 +83,22 @@ export const workspaceSchema = z.object({
           .optional(),
         notes: z
           .array(
-            z.object({
-              id: z.string().max(100),
-              angle: z.string().max(100),
-              text: z.string().max(60000),
-              original: z.string().max(60000),
-              source: z.string().max(60000),
-              approved: z.boolean(),
-            }),
+            z
+              .object({
+                id: z.string().max(100),
+                angle: z.string().max(100),
+                text: z.string().max(60000),
+                original: z.string().max(60000),
+                source: z.string().max(60000),
+                approved: z.boolean(),
+                richText: richDocumentSchema.optional(),
+              })
+              .refine(
+                (note) =>
+                  !note.richText ||
+                  richTextToPlain(note.richText) === note.text,
+                "Note text and formatting must match.",
+              ),
           )
           .max(10),
       }),

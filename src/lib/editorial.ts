@@ -14,6 +14,7 @@ SELECTION
 - A useful set might contain one personal observation, one concrete example, and one different perspective. Do not force every angle.
 - Each Note must make sense independently. Most should provide value without a link.
 - A Note is usually 30-100 words; use short natural paragraphs. No prefatory headings or labels in the text.
+- Do not append the article URL or a "read more" link. The original article is attached separately as a preview card. Generate plain text, not Markdown or HTML formatting.
 
 GOOD ADAPTATION
 Source: "I tried answering email twice a day. I was less distracted, though clients sometimes had to wait."

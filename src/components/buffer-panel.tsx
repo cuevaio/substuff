@@ -21,6 +21,7 @@ import {
 import type { BufferChannel } from "@/lib/buffer";
 import type { Article } from "@/lib/content";
 import type { DeliveryReceipt } from "@/lib/delivery";
+import { hasRichFormatting } from "@/lib/rich-text";
 import { validScheduleBatch } from "@/lib/schedule";
 
 type Connection = {
@@ -105,6 +106,7 @@ export function BufferPanel({
   const [sent, setSent] = useState(false);
   const [hashes, setHashes] = useState<Record<string, string>>({});
   const notes = article.notes.filter((note) => note.approved);
+  const formatted = notes.some((note) => hasRichFormatting(note.richText));
   const channels = connection.data?.channels ?? [];
   const channelId =
     selectedChannel || (channels.length === 1 ? channels[0].id : "");
@@ -187,6 +189,12 @@ export function BufferPanel({
   }
   async function send() {
     if (busy || sent || recorded) return;
+    if (formatted) {
+      setError(
+        "Buffer only publishes plain text. Copy formatted Notes to Substack, or remove formatting before sending.",
+      );
+      return;
+    }
     if (mode === "schedule" && !validScheduleBatch(schedule)) {
       setError("Choose a time between five minutes and 90 days from now.");
       return;
@@ -263,6 +271,18 @@ export function BufferPanel({
 
   return (
     <div className="buffer-panel">
+      {article.sourceUrl && (
+        <p className="input-caption">
+          The original article is attached as a preview card, not added to the
+          Note text.
+        </p>
+      )}
+      {formatted && (
+        <p className="inline-error" role="alert">
+          Buffer only publishes plain text. Your formatting is saved; copy these
+          Notes to Substack, or remove formatting in the editor before sending.
+        </p>
+      )}
       {(error || connection.error || connection.data?.error) && (
         <p className="inline-error" role="alert">
           {error || connection.error?.message || connection.data?.error}
@@ -280,7 +300,7 @@ export function BufferPanel({
           </p>
           <div className="dialog-actions">
             <button type="button" className="text-button" onClick={onExport}>
-              Export Notes
+              Export text
             </button>
             <Button
               disabled={busy || !connection.data?.configured}
@@ -348,7 +368,7 @@ export function BufferPanel({
           </p>
           <div className="dialog-actions">
             <button type="button" className="text-button" onClick={onExport}>
-              Export
+              Export text
             </button>
             <a
               className="text-button"
@@ -485,6 +505,7 @@ export function BufferPanel({
               onClick={send}
               disabled={
                 busy ||
+                formatted ||
                 !notes.length ||
                 !channelId ||
                 channel?.isDisconnected ||

@@ -5,6 +5,7 @@ import { deliveries } from "@/db/schema";
 import { BufferError, graphql } from "./buffer";
 import type { Article, Note } from "./content";
 import { deliveryKey } from "./delivery";
+import { canSendThroughBuffer, noteAttachment } from "./note-attachment";
 
 // Shared durable send boundary. Never replay a claim, even when confirmation is lost.
 export async function sendNote(input: {
@@ -17,6 +18,11 @@ export async function sendNote(input: {
   dueAt?: string;
 }) {
   const { workspaceId, article, note, channelId, token, mode, dueAt } = input;
+  if (!canSendThroughBuffer(note))
+    throw new BufferError(
+      "Buffer publishes plain text only. Copy this formatted Note to Substack, or remove formatting before sending.",
+      409,
+    );
   if (
     !note.approved ||
     !note.text.trim() ||
@@ -68,6 +74,7 @@ export async function sendNote(input: {
       ...(mode === "schedule" ? { dueAt } : {}),
       aiAssisted: article.mode === "ai",
       source: "substuff",
+      ...noteAttachment(article),
     };
     const { createPost } = await graphql<{
       createPost: {
