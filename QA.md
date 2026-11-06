@@ -2,7 +2,7 @@
 
 ## Passed locally
 
-- Bun unit suite: 28 tests covering source grounding, exact excerpts, duplicate removal, approved-only export, corrupt workspace validation, summary-voice guard, guest-token hashing, same-origin checks, bounded fallback, privacy-safe diagnostics, token encryption/context binding, exact approved delivery versions, shared browser/server scheduling boundaries and ambiguous GraphQL responses.
+- Bun unit suite: 35 tests covering source grounding, exact excerpts, duplicate removal, approved-only export, corrupt workspace validation, summary-voice guard, guest-token hashing, same-origin checks, bounded fallback, privacy-safe diagnostics, token encryption/context binding, exact approved delivery versions, shared browser/server scheduling boundaries, ambiguous GraphQL responses and safe published-post import.
 - Biome and TypeScript checks; optimized Next.js build.
 - Actual dedicated Neon database: write/read persistence, guest-cookie isolation, stale-revision rejection (409), malformed input (400), foreign origin (403), and clearing the stored document.
 - Actual AI SDK → personal Vercel AI Gateway → Gemini Flash Lite structured output. Sources matched the supplied sample article.
@@ -75,3 +75,15 @@ Ignored local `artifacts/`: onboarding, desktop workspace, mobile workspace, and
 - Local UI fixture only (outgoing publishing disabled): opened the multi-channel Select, selected a channel, opened Calendar, verified past days disabled, selected Nov 8 and confirmed the popover closed while preserving 10:00. This is component evidence, not new Buffer delivery evidence. Found and fixed a utility-style collision that squeezed the date button; kept time input width explicit.
 - Independent server-side headless browser could not launch because the host has no usable Chromium sandbox. No sandbox/security restrictions were disabled. Mobile/device acceptance remains unverified in this pass; desktop in-app browser testing continued.
 - No additional public post was authorized or published during this UI pass.
+
+### Production acceptance — `3c17f3b`
+
+- Deployment `dpl_21k8SBP1c6ARnEJhShgXyshz5wMu` reached READY; checked `https://substuff.vercel.app` in the existing signed-in in-app browser.
+- Imported the actual published hackathons post through the new link-only dialog in production. Four Notes and the canonical source URL were persisted. Existing sample and delivery-test work remained intact.
+- Actual Settings dialog shows only Buffer/account, connection action, Privacy and clear/done controls. Actual Share Notes dialog shows destination, draft/schedule choice, an expandable Note preview and final actions; activity stays collapsed when present.
+- Opened the actual Calendar against the real Buffer connection. Date/time controls measured 296px/120px without wrapping. Escape closed the calendar but left sharing open. Selected today and a past time; Schedule 1 Note disabled and a concise validation message appeared. Did not click Save drafts or Schedule.
+- Removed the temporary QA approval. Independent production reads confirmed the imported post has four unapproved Notes; delivery history remains exactly one earlier sent receipt and one earlier cancelled receipt. No new delivery was created in this pass.
+- Production smoke script passed persistence, cookie isolation, origin checks, unsafe import-URL rejection, revision conflict, malformed input and clearing only its disposable workspace.
+- Actual local production-build landing Lighthouse: Accessibility 100, Best Practices 100, SEO 100, no failed audits. This is not a physical-device or performance benchmark.
+- Retained local ignored screenshots for landing, workspace, settings, sharing and calendar. Cleaned only the separate localhost QA document; the real imported production post is retained for the writer.
+- Also verified production sidebar collapse: workspace/footer both reached left edge zero, hidden navigation was inert, and reload preserved the collapsed preference. GitHub Check run `42177667676` passed.
