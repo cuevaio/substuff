@@ -1,9 +1,20 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { articleInput, extractNotes, exportNotes, generatedNotes, isGrounded, sampleArticle, workspaceSchema } from "../src/lib/content";
+import test from "node:test";
+import {
+  articleInput,
+  exportNotes,
+  extractNotes,
+  generatedNotes,
+  isGrounded,
+  sampleArticle,
+  workspaceSchema,
+} from "../src/lib/content";
 
 test("sample Notes have real source passages, distinct IDs and no implicit approvals", () => {
-  assert.equal(new Set(sampleArticle.notes.map(n => n.id)).size, sampleArticle.notes.length);
+  assert.equal(
+    new Set(sampleArticle.notes.map((n) => n.id)).size,
+    sampleArticle.notes.length,
+  );
   for (const note of sampleArticle.notes) {
     assert.ok(isGrounded(note.source, sampleArticle.content));
     assert.equal(note.approved, false);
@@ -22,7 +33,7 @@ test("excerpts are source content, bounded and unapproved", () => {
 });
 
 test("excerpt mode works with a single long paragraph and preserves a long sentence", () => {
-  const content = "a".repeat(1400) + ".";
+  const content = `${"a".repeat(1400)}.`;
   assert.equal(extractNotes(content)[0].text, content);
 });
 
@@ -40,9 +51,20 @@ test("exports include only approved drafts", () => {
 });
 
 test("input validation rejects tiny, oversized and missing articles", () => {
-  assert.equal(articleInput.safeParse({ title: "Test", content: "short" }).success, false);
-  assert.equal(articleInput.safeParse({ title: "", content: sampleArticle.content }).success, false);
-  assert.equal(articleInput.safeParse({ title: "Test", content: "x".repeat(60001) }).success, false);
+  assert.equal(
+    articleInput.safeParse({ title: "Test", content: "short" }).success,
+    false,
+  );
+  assert.equal(
+    articleInput.safeParse({ title: "", content: sampleArticle.content })
+      .success,
+    false,
+  );
+  assert.equal(
+    articleInput.safeParse({ title: "Test", content: "x".repeat(60001) })
+      .success,
+    false,
+  );
   assert.equal(articleInput.safeParse(sampleArticle).success, true);
 });
 
@@ -54,10 +76,25 @@ test("grounding normalizes whitespace but rejects invented text", () => {
 test("generated output has a validated shape", () => {
   assert.ok(generatedNotes.safeParse({ notes: sampleArticle.notes }).success);
   assert.equal(generatedNotes.safeParse({ notes: [] }).success, false);
-  assert.equal(generatedNotes.safeParse({ notes: [{ angle: "Viral", text: "test", source: "test" }] }).success, false);
+  assert.equal(
+    generatedNotes.safeParse({
+      notes: [{ angle: "Viral", text: "test", source: "test" }],
+    }).success,
+    false,
+  );
 });
 
 test("workspace schema rejects corrupt persisted data", () => {
-  assert.ok(workspaceSchema.safeParse({ version: 1, activeId: sampleArticle.id, articles: [sampleArticle] }).success);
-  assert.equal(workspaceSchema.safeParse({ version: 1, articles: [{ title: "Broken" }] }).success, false);
+  assert.ok(
+    workspaceSchema.safeParse({
+      version: 1,
+      activeId: sampleArticle.id,
+      articles: [sampleArticle],
+    }).success,
+  );
+  assert.equal(
+    workspaceSchema.safeParse({ version: 1, articles: [{ title: "Broken" }] })
+      .success,
+    false,
+  );
 });

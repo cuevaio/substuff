@@ -19,15 +19,16 @@ One article → a few good Notes → a quick edit → an approved week.
 
 ## Build order
 
-- [ ] First slice: onboarding, pasted article, sample, editable source-linked Notes, approval, local persistence, export, responsive review workspace.
-- [ ] Optional real AI generation with strict structured output and exact source references. Honest excerpt mode without credentials.
+- [x] First slice: onboarding, pasted article, sample, editable source-linked Notes, approval, local persistence, export, responsive review workspace.
+- [x] AI SDK + Vercel AI Gateway generation with exact source references; Gemini Flash Lite. Honest excerpt mode without credentials.
+- [x] Bun, Biome, Husky, shadcn/Radix primitives, Drizzle schema + migrations, dedicated Neon database, GitHub and personal Vercel project.
 - [ ] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation.
 - [ ] Feed detection, source versioning, duplicate protection, weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 
 ## First-slice boundaries
 
-Local-first prototype. Not multi-user production SaaS. No hidden account creation, silent public upload, fake AI progress, or simulated publishing. Article content is sent to the configured model only after an explicit generation action and privacy disclosure. Browser-local content has a clear-data action. No arbitrary URL fetching in this slice.
+Minimal guest-workspace prototype. No full account login yet. No silent public upload, fake AI progress, or simulated publishing. Article content is sent to the configured model only after an explicit generation action and privacy disclosure. Drizzle/Neon stores guest drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the document. No arbitrary URL fetching in this slice.
 
 ## Ship gate
 
