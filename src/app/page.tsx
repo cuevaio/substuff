@@ -369,7 +369,7 @@ export default function Home() {
               <h1>
                 Your writing,
                 <br />
-                <span>continued.</span>
+                <span className="welcome-title-second">continued.</span>
               </h1>
               <p>
                 Turn an article into a few good Notes.
@@ -811,7 +811,7 @@ export default function Home() {
             )}
             <p className="privacy-note">
               {aiAvailable
-                ? "Creating Notes sends your article through Vercel AI Gateway to Google Gemini. Only use writing you have permission to share."
+                ? "Creating Notes sends your article through Vercel AI Gateway to Google Gemini, with OpenAI as a fallback. Only use writing you have permission to share."
                 : "AI writing isn’t connected in this preview. Start with exact excerpts and edit them yourself."}{" "}
               {cloud
                 ? "Your drafts are stored privately for this browser’s workspace, with a local backup."
@@ -918,7 +918,7 @@ export default function Home() {
             <span>AI writing</span>
             <p>
               {aiAvailable
-                ? "Connected through Vercel AI Gateway. Gemini Flash Lite creates drafts only when you choose Create Notes."
+                ? "Connected through Vercel AI Gateway. Gemini Flash Lite creates drafts, with GPT-4.1 mini as a fallback. Only runs when you choose Create Notes."
                 : "Not connected. Configure AI Gateway and Neon to enable article-to-Notes writing. Excerpts work without them."}
             </p>
           </div>

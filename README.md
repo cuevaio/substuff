@@ -22,7 +22,7 @@ Open `http://127.0.0.1:3100`. Node 24 is the Next.js runtime; Bun manages depend
 See `.env.example`. Keep real values in ignored `.env.local` (0600) and the matching Vercel project; never commit secrets.
 
 - `DATABASE_URL`: restricted Neon application role. Drizzle schema and generated migrations are checked in. `bun run db:migrate` requires a separately held owner connection, never deployed.
-- `AI_GATEWAY_API_KEY`: dedicated Gateway key. Default model `google/gemini-2.5-flash-lite`; configurable through `AI_MODEL`.
+- `AI_GATEWAY_API_KEY`: dedicated Gateway key capped at $5/month. Default model `google/gemini-2.5-flash-lite`; configurable through `AI_MODEL`. One `openai/gpt-4.1-mini` fallback is allowed if generation or grounding fails. Both attempts share a 50-second deadline; provider retries are disabled.
 - `RATE_LIMIT_SALT`: random server-only salt for durable daily hashed-IP generation quotas.
 
 No credentials are necessary for sample/excerpt editing. Actual AI generation requires Gateway + Neon configuration and a deliberate user action. Sources are validated against the article, but human editorial verification remains essential.
@@ -40,7 +40,7 @@ No credentials are necessary for sample/excerpt editing. Actual AI generation re
 
 Guest access is a random HttpOnly cookie, not an account. Workspace access expires after 30 days; there is no cross-device login or recovery flow yet. An authorized daily cron deletes expired workspace and quota rows. Do not describe the current system as account-synced storage. Expired/missing cookies cannot recover old workspace data. Export important work.
 
-Articles are sent through AI Gateway to the configured model only on Create Notes; the default is Gemini Flash Lite. Drafts are stored in Neon for the guest workspace and backed up in localStorage. Clearing the workspace overwrites its stored document. Don't paste private material without permission.
+Articles are sent through AI Gateway to Google Gemini (or OpenAI on fallback) only on Create Notes. Drafts are stored in Neon for the guest workspace and backed up in localStorage. Clearing the workspace overwrites its stored document. Don't paste private material without permission.
 
 Public generation is limited to ten attempts per UTC day per hashed IP, with a separate dedicated key budget. Behind Vercel, only its trusted client-IP header is used; local runs share a local bucket. Missing quota configuration disables generation. Failed model attempts still consume quota. The AI Gateway budget is the final spend boundary, not application-level authentication.
 

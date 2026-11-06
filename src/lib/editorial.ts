@@ -17,8 +17,8 @@ SELECTION
 
 GOOD ADAPTATION
 Source: "I tried answering email twice a day. I was less distracted, though clients sometimes had to wait."
-Good Note: "I tried answering email twice a day.\n\nI was less distracted. Clients sometimes had to wait.\n\nFor me, the trade-off was worth it."
-But the last sentence is ONLY allowed if the article actually supports that judgment. Otherwise omit it.
+Good Note: "I tried answering email twice a day.\n\nI was less distracted. Clients sometimes had to wait."
+Do not add a verdict about whether the trade-off was worth it unless the article actually supports that judgment.
 Bad Note: "The author discovered that batching email boosts productivity. This insight demonstrates the power of intentional habits."
 
 GROUNDING
