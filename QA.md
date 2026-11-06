@@ -27,3 +27,7 @@ Ignored local `artifacts/`: onboarding, desktop workspace, mobile workspace, and
 - First production model check returned a guarded 502. A later check on `528b86f` produced four grounded Notes successfully. The original failure cause was not captured; no claim is made that it was a provider outage.
 - Added non-sensitive failure classification and a bounded fallback to GPT-4.1 mini. Grounding failure is never bypassed, and unverified drafts are never returned. Shared 50-second deadline and dedicated spend cap bound the retry.
 - Live browser onboarding screenshot: `artifacts/live-onboarding-desktop.png`. This is an actual deployment, not a static design mockup.
+- `8259dad` reached READY through Git integration; GitHub CI passed. Repeated live database/API checks and AI generation passed on this revision (five source-linked Notes).
+- Live desktop/mobile sample approval flow passed; mobile measured no horizontal overflow and no clipped textareas. Screenshots: `artifacts/live-workspace-{desktop,mobile}.png`.
+- Real browser file download verified: `artifacts/approved-notes.txt` contains exactly the two approved Notes, not the unapproved drafts.
+- Cleanup endpoint rejects unauthenticated requests (401); an authorized call with the production-only secret returned 200.

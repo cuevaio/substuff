@@ -84,6 +84,6 @@ if (process.argv.includes("--ai")) {
     ),
   );
   console.log(
-    `PASS: Live AI SDK → Vercel AI Gateway → Gemini structured generation; ${output.notes.length} source-linked Notes.`,
+    `PASS: Live AI SDK → Vercel AI Gateway structured generation; ${output.notes.length} source-linked Notes.`,
   );
 }

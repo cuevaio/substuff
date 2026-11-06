@@ -22,6 +22,7 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] First slice: onboarding, pasted article, sample, editable source-linked Notes, approval, local persistence, export, responsive review workspace.
 - [x] AI SDK + Vercel AI Gateway generation with exact source references; Gemini Flash Lite. Honest excerpt mode without credentials.
 - [x] Bun, Biome, Husky, shadcn/Radix primitives, Drizzle schema + migrations, dedicated Neon database, GitHub and personal Vercel project.
+- [x] Public first-slice deployment at https://substuff.vercel.app; Git-triggered releases, live storage/model smoke tests and desktop/mobile browser checks.
 - [ ] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation.
 - [ ] Feed detection, source versioning, duplicate protection, weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
