@@ -6,7 +6,7 @@ One article → a few good Notes → a quick edit → an approved week.
 
 1. **Start:** Continue with Buffer and connect a Substack channel. Add a publication link; first-run onboarding reads the latest post, analyzes its ideas/voice and writes unapproved suggestions. No guest/demo entry, article creation or pasted-article editor.
 2. **Review:** `/posts/[id]` shows feed-style plain-text Notes with the connected Substack avatar/name beside a hideable, formatted original. Show source in the three-dot menu highlights the supporting passage. To approve is editable; icon-only Approve/Edit actions have tooltips. Approved requires Edit; Posted is permanently read-only. Copy, restore and article-card preference also live in the menu. Article previews use the official Substack logo. No Note numbers. Autosave.
-3. **Schedule:** select approved Notes and dates; `/schedule` provides list/calendar views with publishing timezone and automatically reconciled status. The optional original article is a separate attached card, not body text. Editing a queued Note first requires confirmed cancellation. Immediate automation remains a separate explicit opt-in, never part of onboarding.
+3. **Schedule:** select approved Notes and dates; `/schedule` provides list/calendar views with publishing timezone and automatically reconciled status. The optional original article is a separate attached card, not body text. Editing a queued Note first requires confirmed cancellation. Auto-approve starts new generated Notes approved, but never shares or schedules them. Users can unapprove, edit and reapprove.
 4. **Return:** resume the last article and edits. Later, a connected feed brings the next article into the same workflow.
 
 ## Design
@@ -28,7 +28,7 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation. Production private draft, duplicate prevention, draft cancellation, token renewal, reconnect and one approved public scheduled delivery verified.
 - [x] Published Substack post-link import, canonical source links and repeat-import protection that preserves edits.
 - [x] Connected-feed discovery and safe daily background import. Initial backlog is opt-in; manual feed checks are available.
-- [x] Explicit opt-in for immediate public AI Notes, versioned consent, channel/count selection, bounded jobs, opt-out checks and duplicate-send ledger.
+- [x] Optional auto-approval for all newly generated Notes, versioned preference, unapprove/edit/reapprove, bounded jobs and opt-out checks. Import workers cannot publish; sharing remains explicit. Replaces the former immediate-publication mode.
 - [x] Required Buffer sign-in and Substack channel, no demo entry point, streamed first-run content/style onboarding with real draft generation.
 - [x] Next.js page/layout routing, compact unnumbered plain-text Notes, three read/edit states, sanitized source highlighting, optional article cards and schedule list/calendar.
 - [ ] Source-change versioning, real-time feed ingestion and weekly review reminder.
@@ -36,7 +36,7 @@ One article → a few good Notes → a quick edit → an approved week.
 
 ## First-slice boundaries
 
-Buffer-authenticated workspace with account recovery and browser-session revocation. Temporary OAuth guest cookies are not account authentication. Default is private drafts and manual approval, including all first-run onboarding. Auto-publish is off until the writer explicitly authorizes immediate, public AI-written Notes for a chosen channel and count. Only publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Source references are resolved to exact original passages on the server. Clear-data control removes imported writing and resumable copies but does not cancel remote posts or disconnect the feed. Privacy details stay on the privacy page, not throughout the writing interface.
+Buffer-authenticated workspace with account recovery and browser-session revocation. Temporary OAuth guest cookies are not account authentication. Default is unapproved Notes. When the writer enables Auto-approve, new generated Notes start approved; existing Notes stay unchanged. Import, feed discovery and onboarding never publish or schedule. Only publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Source references are resolved to exact original passages on the server. Clear-data control removes imported writing and resumable copies but does not cancel remote posts or disconnect the feed. Privacy details stay on the privacy page, not throughout the writing interface.
 
 ## Ship gate
 

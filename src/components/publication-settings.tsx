@@ -5,39 +5,19 @@ import { useState } from "react";
 import { connectionQuery } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { AUTO_POLICY_VERSION } from "@/lib/automation-policy";
 import { autoQuery } from "@/lib/client-settings";
 
-export function AutoPublishSettings({
+export function AutoApproveSettings({
   beforeChange,
 }: {
   beforeChange: () => Promise<void>;
 }) {
   const client = useQueryClient();
   const settings = useQuery(autoQuery);
-  const connection = useQuery(connectionQuery);
   const [confirm, setConfirm] = useState(false);
-  const [channelId, setChannelId] = useState("");
-  const [count, setCount] = useState("1");
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const channels =
-    connection.data?.channels?.filter(
-      (channel) =>
-        !channel.isDisconnected &&
-        !channel.isLocked &&
-        !channel.isQueuePaused &&
-        channel.allowedActions.includes("scheduleUpdates"),
-    ) ?? [];
-  const selected = channelId || (channels.length === 1 ? channels[0].id : "");
   async function save(enabled: boolean) {
     if (!settings.data) return;
     setBusy(true);
@@ -52,9 +32,7 @@ export function AutoPublishSettings({
           version: settings.data.version,
           ...(enabled
             ? {
-                channelId: selected,
-                notesPerPost: Number(count),
-                confirmed: consent,
+                confirmed: true,
                 policyVersion: AUTO_POLICY_VERSION,
               }
             : {}),
@@ -62,15 +40,14 @@ export function AutoPublishSettings({
       });
       const data = await response.json();
       if (!response.ok)
-        throw new Error(data.error || "Couldn’t change auto-publish.");
+        throw new Error(data.error || "Couldn’t change auto-approve.");
       client.setQueryData(autoQuery.queryKey, data);
       setConfirm(false);
-      setConsent(false);
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
-          : "Couldn’t change auto-publish.",
+          : "Couldn’t change auto-approve.",
       );
       await client.invalidateQueries({ queryKey: autoQuery.queryKey });
     } finally {
@@ -81,21 +58,17 @@ export function AutoPublishSettings({
     <>
       <div className="settings-connection">
         <div>
-          <span>Auto-publish</span>
+          <span>Auto-approve</span>
           <small>
             {settings.data?.enabled
-              ? `On · up to ${settings.data.notesPerPost} Notes per post`
-              : "Off · review before sharing"}
+              ? "On · new Notes start approved"
+              : "Off · approve Notes yourself"}
           </small>
         </div>
         <button
           type="button"
           className="text-button"
-          disabled={
-            busy ||
-            !settings.data ||
-            (connection.isPending && !settings.data.enabled)
-          }
+          disabled={busy || !settings.data}
           onClick={() =>
             settings.data?.enabled ? void save(false) : setConfirm(true)
           }
@@ -110,72 +83,18 @@ export function AutoPublishSettings({
       )}
       {confirm && (
         <Dialog
-          title="Publish without review?"
+          title="Auto-approve new Notes?"
           onClose={() => {
             if (!busy) {
               setConfirm(false);
-              setConsent(false);
             }
           }}
         >
           <p className="dialog-description">
-            New imports will publish AI-written Notes immediately. Existing
-            imported posts are not included.
+            New generated Notes will start approved. You can unapprove, edit,
+            and approve them again. Nothing is published or scheduled until you
+            choose to share. Existing Notes won’t change.
           </p>
-          {!channels.length ? (
-            <p className="inline-error">
-              Connect an active Substack channel in Buffer first.
-            </p>
-          ) : (
-            <>
-              <Select
-                value={selected}
-                onValueChange={setChannelId}
-                disabled={busy}
-              >
-                <SelectTrigger
-                  className="w-full"
-                  aria-label="Auto-publish channel"
-                >
-                  <SelectValue placeholder="Choose Substack" />
-                </SelectTrigger>
-                <SelectContent position="popper" style={{ zIndex: 80 }}>
-                  {channels.map((channel) => (
-                    <SelectItem key={channel.id} value={channel.id}>
-                      {channel.displayName || channel.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="field-label" htmlFor="auto-note-count">
-                Notes per post
-              </label>
-              <Select value={count} onValueChange={setCount} disabled={busy}>
-                <SelectTrigger id="auto-note-count" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper" style={{ zIndex: 80 }}>
-                  {[1, 2, 3].map((count) => (
-                    <SelectItem key={count} value={String(count)}>
-                      Up to {count} {count === 1 ? "Note" : "Notes"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="publishing-consent">
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  disabled={busy}
-                  onChange={(event) => setConsent(event.target.checked)}
-                />
-                <span>
-                  I allow these AI-written Notes to publish publicly without
-                  individual review.
-                </span>
-              </label>
-            </>
-          )}
           {error && (
             <p className="inline-error" role="alert">
               {error}
@@ -190,11 +109,8 @@ export function AutoPublishSettings({
             >
               Cancel
             </button>
-            <Button
-              onClick={() => save(true)}
-              disabled={!consent || !selected || busy}
-            >
-              Enable auto-publish
+            <Button onClick={() => save(true)} disabled={busy}>
+              Enable auto-approve
             </Button>
           </div>
         </Dialog>
@@ -243,7 +159,7 @@ export function SignOutButton({
           <p>
             Your posts stay saved. Sign in with Buffer to restore them.
             {automatic.data?.enabled
-              ? " Auto-publish keeps running until you turn it off."
+              ? " Auto-approve stays on for new Notes. Nothing publishes automatically."
               : ""}
           </p>
           {error && (
@@ -278,7 +194,6 @@ export function PublicationSettings({
   onConnect: () => void;
 }) {
   const client = useQueryClient();
-  const automatic = useQuery(autoQuery);
   const feed = useQuery({
     queryKey: ["feed"],
     queryFn: async () => {
@@ -346,11 +261,7 @@ export function PublicationSettings({
           disabled={busy}
           onClick={() => act("PATCH")}
         >
-          {busy
-            ? "Checking…"
-            : automatic.data?.enabled
-              ? "Check & publish"
-              : "Check now"}
+          {busy ? "Checking…" : "Check now"}
         </button>
       )}
       {(error || feed.error || feed.data?.publication?.error) && (
@@ -375,8 +286,8 @@ export function PublicationSettings({
       {disconnect && (
         <div className="cancel-confirm">
           <p>
-            Disconnect this feed? Saved Notes stay in your workspace. A send
-            already in progress may finish.
+            Disconnect this feed? Saved Notes stay in your workspace. Notes
+            already scheduled in Buffer won’t be cancelled.
           </p>
           <div className="dialog-actions">
             <button

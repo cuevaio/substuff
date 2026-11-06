@@ -11,12 +11,14 @@ import {
   publications,
   workspaces,
 } from "../src/db/schema";
+import { AUTO_POLICY_VERSION } from "../src/lib/automation-policy";
 import { discoverFeed } from "../src/lib/feed-sync";
 import {
   enqueueImport,
   type ImportServices,
   runImportJob,
 } from "../src/lib/import-jobs";
+import { noteUpdateError } from "../src/lib/note-state";
 import { sendNote } from "../src/lib/send-note";
 
 if (process.env.SUBSTUFF_QA_DATABASE !== "true")
@@ -101,7 +103,7 @@ async function workspace(enabled = false, count = 1) {
       channelId: enabled ? "qa-channel" : null,
       notesPerPost: count,
       consentAt: enabled ? new Date() : null,
-      policyVersion: enabled ? 1 : 0,
+      policyVersion: enabled ? AUTO_POLICY_VERSION : 0,
     });
   return id;
 }
@@ -118,33 +120,13 @@ function dependencies(overrides: Partial<ImportServices> = {}): ImportServices {
       style: "Concise first-person observations with qualifications.",
     }),
     budget: async () => true,
-    channels: async () => ({
-      accountName: "QA fixture",
-      channels: [
-        {
-          id: "qa-channel",
-          name: "QA",
-          displayName: "QA",
-          organizationId: "qa-org",
-          organizationName: "QA",
-          service: "substack",
-          timezone: "UTC",
-          isDisconnected: false,
-          isLocked: false,
-          isQueuePaused: false,
-          allowedActions: ["scheduleUpdates"],
-        },
-      ],
-    }),
-    token: async () => "qa-test-token-never-sent-externally",
-    send: sendNote,
     ...overrides,
   };
 }
 try {
-  stage = "onboarding is draft-only even with an enabled automation policy";
-  const onboarding = await workspace(true, 2);
-  const onboardingJob = await enqueueImport(onboarding, source, 1);
+  stage = "first-run onboarding defaults to unapproved without auto-approve";
+  const onboarding = await workspace();
+  const onboardingJob = await enqueueImport(onboarding, source, 0);
   const progress: string[] = [];
   let voiceUsed = false;
   const onboardingResult = await runImportJob(
@@ -156,7 +138,7 @@ try {
       },
     }),
     true,
-    { draftOnly: true, onProgress: (step) => progress.push(step) },
+    { onProgress: (step) => progress.push(step) },
   );
   assert.equal(onboardingResult.state, "done");
   assert.deepEqual(progress, ["content", "understanding", "style", "writing"]);
@@ -186,7 +168,7 @@ try {
       },
     }),
     true,
-    { draftOnly: true, onProgress: () => {} },
+    { onProgress: () => {} },
   );
   assert.equal(guarded.state, "failed");
   assert.equal(prematureGeneration, false);
@@ -205,8 +187,8 @@ try {
     manualDocument.document.articles[0].notes.every((note) => !note.approved),
   );
 
-  stage = "concurrent immediate publication";
-  const automatic = await workspace(true, 2);
+  stage = "concurrent auto-approval never publishes";
+  const automatic = await workspace(true, 1);
   let generations = 0;
   const autoJob = await enqueueImport(automatic, source, 1);
   const concurrent = dependencies({
@@ -224,10 +206,47 @@ try {
     .from(deliveries)
     .where(eq(deliveries.workspaceId, automatic));
   assert.equal(generations, 1);
-  assert.equal(sent.length, 2);
-  assert.equal(calls, 2);
+  assert.equal(sent.length, 0);
+  assert.equal(calls, 0);
+  const [autoDocument] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, automatic));
+  assert.ok(
+    autoDocument.document.articles[0].notes.every((note) => note.approved),
+    "All generated Notes must be approved, not the old Notes-per-post limit",
+  );
+  const edited = structuredClone(autoDocument.document.articles);
+  edited[0].notes[0].approved = false;
+  assert.equal(
+    noteUpdateError(autoDocument.document.articles, edited, []),
+    null,
+  );
+  const updated = structuredClone(edited);
+  updated[0].notes[0].text = "Writer changed this Note.";
+  assert.equal(noteUpdateError(edited, updated, []), null);
+  const reapproved = structuredClone(updated);
+  reapproved[0].notes[0].approved = true;
+  assert.equal(noteUpdateError(updated, reapproved, []), null);
+  await db()
+    .update(workspaces)
+    .set({ document: { ...autoDocument.document, articles: updated } })
+    .where(eq(workspaces.id, automatic));
   await runImportJob(autoJob.id, concurrent);
-  assert.equal(calls, 2);
+  assert.equal(calls, 0);
+  const [preserved] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, automatic));
+  assert.equal(
+    preserved.document.articles[0].notes[0].approved,
+    false,
+    "Job replay must not reapprove a denied Note",
+  );
+  assert.equal(
+    preserved.document.articles[0].notes[0].text,
+    "Writer changed this Note.",
+  );
   const sameJob = await enqueueImport(automatic, `${source}?utm_source=qa`, 1);
   assert.equal(sameJob.id, autoJob.id);
   await assert.rejects(
@@ -250,7 +269,7 @@ try {
     }),
   );
   assert.equal(out.state, "done");
-  assert.equal(calls, 2);
+  assert.equal(calls, 0);
   const [optedOutDocument] = await db()
     .select()
     .from(workspaces)
@@ -259,21 +278,43 @@ try {
     optedOutDocument.document.articles[0].notes.every((note) => !note.approved),
   );
 
-  stage = "uncertain response is never resent";
-  const uncertain = await workspace(true);
-  const uncertainJob = await enqueueImport(uncertain, source);
-  unknown = true;
-  const lost = await runImportJob(uncertainJob.id, dependencies());
-  assert.equal(lost.state, "attention");
-  const afterLost = calls;
-  await runImportJob(uncertainJob.id, dependencies(), true);
-  assert.equal(calls, afterLost);
-  const [receipt] = await db()
+  stage = "legacy publication consent cannot approve or send";
+  const legacy = await workspace(true);
+  await db()
+    .update(automation)
+    .set({ policyVersion: 1 })
+    .where(eq(automation.workspaceId, legacy));
+  const legacyJob = await enqueueImport(legacy, source);
+  assert.equal(legacyJob.autoVersion, null);
+  await runImportJob(legacyJob.id, dependencies());
+  const [legacyDocument] = await db()
     .select()
-    .from(deliveries)
-    .where(eq(deliveries.workspaceId, uncertain));
-  assert.equal(receipt.status, "unknown");
-  unknown = false;
+    .from(workspaces)
+    .where(eq(workspaces.id, legacy));
+  assert.ok(
+    legacyDocument.document.articles[0].notes.every((note) => !note.approved),
+  );
+  assert.equal(calls, 0);
+  const legacyResume = await workspace(true);
+  await db()
+    .update(automation)
+    .set({ policyVersion: 1 })
+    .where(eq(automation.workspaceId, legacyResume));
+  const legacyResumeJob = await enqueueImport(legacyResume, source);
+  const oldArticle = structuredClone(autoDocument.document.articles[0]);
+  await db()
+    .update(importJobs)
+    .set({ state: "attention", article: oldArticle, autoVersion: 1 })
+    .where(eq(importJobs.id, legacyResumeJob.id));
+  await runImportJob(legacyResumeJob.id, dependencies(), true);
+  const [legacyResumed] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, legacyResume));
+  assert.ok(
+    legacyResumed.document.articles[0].notes.every((note) => !note.approved),
+  );
+  assert.equal(calls, 0, "Resuming an old publication job must never send");
 
   stage = "feed baseline and duplicate discovery";
   const feed = await workspace();
@@ -308,7 +349,7 @@ try {
       enabled: true,
       version: 1,
       channelId: "qa-channel",
-      policyVersion: 1,
+      policyVersion: AUTO_POLICY_VERSION,
       consentAt: new Date(),
     })
     .where(eq(automation.workspaceId, feed));
@@ -316,7 +357,7 @@ try {
   assert.equal(
     calls,
     beforeBaseline,
-    "Enabling automation must not publish an already queued draft-only job",
+    "Enabling auto-approval must never publish an already queued job",
   );
   const chosenEarlier = await enqueueImport(
     feed,
@@ -326,28 +367,48 @@ try {
   await runImportJob(chosenEarlier.id, dependencies(), true);
   assert.equal(
     calls,
-    beforeBaseline + 1,
-    "A deliberate Import & publish can authorize one selected baseline item",
+    beforeBaseline,
+    "A deliberate import must never create a Buffer post",
+  );
+  const [feedDocument] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, feed));
+  assert.ok(
+    feedDocument.document.articles
+      .find((article) => article.sourceUrl?.endsWith("/earlier"))
+      ?.notes.every((note) => note.approved),
+  );
+  assert.ok(
+    feedDocument.document.articles
+      .find((article) => article.sourceUrl?.endsWith("/newer"))
+      ?.notes.every((note) => !note.approved),
   );
 
-  stage = "turn off stops later Notes in the batch";
+  stage = "off then on does not authorize a stale job";
   const stopped = await workspace(true, 2);
   const stopJob = await enqueueImport(stopped, source);
   const beforeStop = calls;
   await runImportJob(
     stopJob.id,
     dependencies({
-      send: async (input) => {
-        const receipt = await sendNote(input);
+      generate: async () => {
         await db()
           .update(automation)
-          .set({ enabled: false, version: 2 })
+          .set({ enabled: true, version: 3 })
           .where(eq(automation.workspaceId, stopped));
-        return receipt;
+        return structuredClone(drafts);
       },
     }),
   );
-  assert.equal(calls - beforeStop, 1);
+  assert.equal(calls - beforeStop, 0);
+  const [stoppedDocument] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, stopped));
+  assert.ok(
+    stoppedDocument.document.articles[0].notes.every((note) => !note.approved),
+  );
 
   stage = "failed generation needs deliberate retry";
   const failed = await workspace();
@@ -411,31 +472,40 @@ try {
   const optJob = await enqueueImport(optOut, source);
   expectNoAttachment = true;
   const beforeOptOut = calls;
-  await runImportJob(
-    optJob.id,
-    dependencies({
-      send: async (input) => {
-        const [current] = await db()
-          .select()
-          .from(workspaces)
-          .where(eq(workspaces.id, input.workspaceId));
-        const document = structuredClone(current.document);
-        const note = document.articles
-          .find((article) => article.id === input.article.id)
-          ?.notes.find((note) => note.id === input.note.id);
-        if (!note) throw new Error("Missing QA Note");
-        note.includeArticle = false;
-        await db()
-          .update(workspaces)
-          .set({ document })
-          .where(eq(workspaces.id, input.workspaceId));
-        return sendNote({
-          ...input,
-          note: { ...input.note, includeArticle: false },
-        });
-      },
-    }),
+  await runImportJob(optJob.id, dependencies());
+  assert.equal(
+    (
+      await db()
+        .select()
+        .from(deliveries)
+        .where(inArray(deliveries.workspaceId, created))
+    ).length,
+    0,
+    "No imported Note may create a delivery before explicit sharing",
   );
+  assert.equal(
+    calls,
+    0,
+    "Every automatic import above must have made zero provider writes",
+  );
+  const [current] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, optOut));
+  current.document.articles[0].notes[0].includeArticle = false;
+  await db()
+    .update(workspaces)
+    .set({ document: current.document })
+    .where(eq(workspaces.id, optOut));
+  const manualSend = {
+    workspaceId: optOut,
+    article: current.document.articles[0],
+    note: current.document.articles[0].notes[0],
+    channelId: "qa-channel",
+    token: "qa-never-used-externally",
+    mode: "now" as const,
+  };
+  await sendNote(manualSend);
   expectNoAttachment = false;
   assert.equal(calls, beforeOptOut + 1);
   const [optReceipt] = await db()
@@ -463,8 +533,32 @@ try {
   assert.equal(existingPost.id, optReceipt.id);
   assert.equal(calls, beforeOptOut + 1);
 
+  stage = "explicit delivery uncertainty is never resent";
+  const uncertain = await workspace(true);
+  const uncertainJob = await enqueueImport(uncertain, source);
+  await runImportJob(uncertainJob.id, dependencies());
+  const [uncertainDocument] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, uncertain));
+  const uncertainSend = {
+    workspaceId: uncertain,
+    article: uncertainDocument.document.articles[0],
+    note: uncertainDocument.document.articles[0].notes[0],
+    channelId: "qa-channel",
+    token: "qa-never-used-externally",
+    mode: "now" as const,
+  };
+  unknown = true;
+  const lost = await sendNote(uncertainSend);
+  assert.equal(lost.status, "unknown");
+  const afterLost = calls;
+  await sendNote(uncertainSend);
+  assert.equal(calls, afterLost);
+  unknown = false;
+
   console.log(
-    "PASS: real-database draft default, durable concurrent imports, immediate-send payload, duplicate prevention, consent-version isolation, opt-out, lost confirmation, feed baseline and explicit generation retry. External publishing was mocked; no creator account was enabled.",
+    "PASS: auto-approval of all new Notes with zero deliveries/provider writes, draft default, unapprove/edit/reapprove, replay preservation, legacy policy isolation, opt-out, stale versions, feed baseline and generation guards. Separate explicit-send fixtures verify attachment opt-out, posted locks and uncertain-send idempotency with publishing mocked. No creator account was enabled.",
   );
 } catch {
   console.error(`FAIL: automation QA at ${stage}; details withheld.`);

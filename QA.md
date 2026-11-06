@@ -1,5 +1,13 @@
 # Verification — November 6, 2026
 
+## Auto-approve replaces automatic publication
+
+- Removed Buffer token/channel/send dependencies and the entire automatic-send loop from import jobs. New generation only saves Notes. Auto-approve defaults off; when enabled it approves every generated Note, with no old 1–3 count limit, channel choice or public-publication consent. Initial onboarding remains unapproved by default; existing accounts’ explicit auto-approval preference applies to newly generated onboarding Notes too.
+- Policy version2 isolates legacy publication consent. Old policy-version1 enable requests returned400 locally. Exact job/preference versions, opt-out during generation and an atomic approval predicate prevent stale settings from approving newly saved Notes. No schema/data rewrite was needed; unused legacy channel/count columns remain preserved.
+- Dedicated real-database fixture suite passed concurrent generation, all-Note approval, zero provider writes and zero deliveries across imports, off/default behavior, opt-out, old-consent and old-attention-job isolation, feed baseline, retries, budgets and clearing. Separate explicit-send tests retained attachment, posted-lock and uncertain-response coverage with provider writes mocked.
+- Local production UI: enabled Auto-approve in its new confirmation dialog (no channel/count selectors), independently read `{enabled:true,version:1}`, generated five fixture Notes through the actual import worker with writing mocked, and observed all five Approved/read-only. Used menu → Unapprove Note, edited text, reapproved, then independently verified persisted edited text, approval true and zero deliveries. Reload preserved the setting; Turn off worked. No real account preference, Note or publication was changed in this local check.
+- Biome, typecheck, 68 tests, database fixtures and optimized build passed. Earlier auto-publish behavior and acceptance below are historical, not current product behavior.
+
 ## Feed-style Note design follow-up
 
 - Removed the sidebar’s actual `group-data-[side=left]:border-r` / right-side equivalent utility instead of relying on lower-layer CSS. In the local production build, computed right border is `0px`; the captured screenshot confirms the white line is gone.

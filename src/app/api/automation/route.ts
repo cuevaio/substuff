@@ -5,7 +5,6 @@ import { db } from "@/db";
 import { automation } from "@/db/schema";
 import { readAccountSession as readSession } from "@/lib/account-session";
 import { AUTO_POLICY_VERSION } from "@/lib/automation-policy";
-import { substackChannels } from "@/lib/buffer";
 import { sameOrigin } from "@/lib/session";
 
 const headers = { "Cache-Control": "private, no-store" };
@@ -23,8 +22,6 @@ export async function GET() {
         saved?.enabled && saved.policyVersion === AUTO_POLICY_VERSION,
       ),
       version: saved?.version ?? 0,
-      channelId: saved?.channelId ?? "",
-      notesPerPost: saved?.notesPerPost ?? 1,
     },
     { headers },
   );
@@ -37,8 +34,6 @@ const inputSchema = z.discriminatedUnion("enabled", [
   z.object({
     enabled: z.literal(true),
     version: z.number().int().nonnegative(),
-    channelId: z.string().min(1).max(100),
-    notesPerPost: z.number().int().min(1).max(3),
     confirmed: z.literal(true),
     policyVersion: z.literal(AUTO_POLICY_VERSION),
   }),
@@ -46,7 +41,7 @@ const inputSchema = z.discriminatedUnion("enabled", [
 export async function PUT(request: Request) {
   if (!sameOrigin(request))
     return NextResponse.json(
-      { error: "Open substuff to change publishing preferences." },
+      { error: "Open substuff to change approval preferences." },
       { status: 403 },
     );
   try {
@@ -55,7 +50,7 @@ export async function PUT(request: Request) {
     const input = inputSchema.safeParse(JSON.parse(raw));
     if (!input.success)
       return NextResponse.json(
-        { error: "Confirm your publishing choice and channel." },
+        { error: "Confirm your auto-approval choice." },
         { status: 400 },
       );
     const workspace = await readSession();
@@ -65,23 +60,6 @@ export async function PUT(request: Request) {
         { status: 401 },
       );
     const value = input.data;
-    if (value.enabled) {
-      const { channels } = await substackChannels(workspace.id);
-      const channel = channels.find(
-        (channel) => channel.id === value.channelId,
-      );
-      if (
-        !channel ||
-        channel.isDisconnected ||
-        channel.isLocked ||
-        channel.isQueuePaused ||
-        !channel.allowedActions.includes("scheduleUpdates")
-      )
-        return NextResponse.json(
-          { error: "Choose an active Substack channel in Buffer." },
-          { status: 400 },
-        );
-    }
     await db()
       .insert(automation)
       .values({ workspaceId: workspace.id })
@@ -92,8 +70,7 @@ export async function PUT(request: Request) {
         enabled: value.enabled,
         ...(value.enabled
           ? {
-              channelId: value.channelId,
-              notesPerPost: value.notesPerPost,
+              channelId: null,
               consentAt: new Date(),
               policyVersion: value.policyVersion,
             }
@@ -120,8 +97,6 @@ export async function PUT(request: Request) {
       {
         enabled: saved.enabled,
         version: saved.version,
-        channelId: saved.channelId,
-        notesPerPost: saved.notesPerPost,
       },
       { headers },
     );

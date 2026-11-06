@@ -2,13 +2,11 @@ import { randomUUID } from "node:crypto";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { automation, importJobs, workspaces } from "@/db/schema";
-import { mayAutoPublish } from "./automation-policy";
-import { accessToken, substackChannels } from "./buffer";
+import { AUTO_POLICY_VERSION, mayAutoApprove } from "./automation-policy";
 import { type Article, workspaceSchema } from "./content";
 import { safeDiagnostic } from "./generate";
 import { claimBucket } from "./generation-limit";
 import type { OnboardingStep } from "./onboarding";
-import { sendNote } from "./send-note";
 import { digest } from "./session";
 import { ImportError, importSubstackPost } from "./substack";
 import { parseSubstackUrl } from "./substack-url";
@@ -18,9 +16,6 @@ const services = {
   readPost: importSubstackPost,
   generate: writeNotes,
   analyze: analyzeWriting,
-  channels: substackChannels,
-  token: accessToken,
-  send: sendNote,
   budget: async (workspaceId: string) => {
     const day = new Date().toISOString().slice(0, 10);
     return (
@@ -46,7 +41,7 @@ export async function enqueueImport(
     (policy?.version ?? 0) !== expectedVersion
   )
     throw new ImportError(
-      "Publishing preferences changed. Review them before importing.",
+      "Approval preferences changed. Review them before importing.",
       409,
     );
   await db()
@@ -55,7 +50,7 @@ export async function enqueueImport(
       id: randomUUID(),
       workspaceId,
       sourceUrl,
-      autoVersion: mayAutoPublish(policy, policy?.version ?? null)
+      autoVersion: mayAutoApprove(policy, policy?.version ?? null)
         ? policy.version
         : null,
     })
@@ -77,7 +72,7 @@ export async function enqueueImport(
     const [explicit] = await db()
       .update(importJobs)
       .set({
-        autoVersion: mayAutoPublish(policy, policy?.version ?? null)
+        autoVersion: mayAutoApprove(policy, policy?.version ?? null)
           ? policy.version
           : null,
       })
@@ -98,6 +93,7 @@ async function appendArticle(
   jobId: string,
   workspaceId: string,
   article: Article,
+  approvalVersion: number | null,
 ) {
   for (let attempt = 0; attempt < 4; attempt++) {
     const [workspace] = await db()
@@ -114,9 +110,20 @@ async function appendArticle(
       (post) => post.sourceUrl === article.sourceUrl || post.id === article.id,
     );
     if (existing) return existing;
+    const [policy] = await db()
+      .select()
+      .from(automation)
+      .where(eq(automation.workspaceId, workspaceId));
+    const approved = mayAutoApprove(policy, approvalVersion);
+    const incoming = approved
+      ? article
+      : {
+          ...article,
+          notes: article.notes.map((note) => ({ ...note, approved: false })),
+        };
     const document = workspaceSchema.parse({
       ...workspace.document,
-      articles: [article, ...workspace.document.articles],
+      articles: [incoming, ...workspace.document.articles],
       activeId: workspace.document.activeId || article.id,
     });
     if (JSON.stringify(document).length > 2_000_000)
@@ -134,10 +141,15 @@ async function appendArticle(
           eq(workspaces.id, workspaceId),
           eq(workspaces.revision, workspace.revision),
           sql`exists (select 1 from ${importJobs} where ${importJobs.id} = ${jobId} and ${importJobs.state} = 'running')`,
+          ...(incoming.notes.some((note) => note.approved)
+            ? [
+                sql`exists (select 1 from ${automation} where ${automation.workspaceId} = ${workspaceId} and ${automation.enabled} = true and ${automation.policyVersion} = ${AUTO_POLICY_VERSION} and ${automation.version} = ${approvalVersion} and ${automation.consentAt} is not null)`,
+              ]
+            : []),
         ),
       )
       .returning({ id: workspaces.id });
-    if (saved) return article;
+    if (saved) return incoming;
   }
   throw new Error("Workspace changed");
 }
@@ -147,7 +159,6 @@ export async function runImportJob(
   dependencies: ImportServices = services,
   explicitRetry = false,
   options: {
-    draftOnly?: boolean;
     onProgress?: (step: OnboardingStep) => void;
   } = {},
 ) {
@@ -247,8 +258,7 @@ export async function runImportJob(
         .select()
         .from(automation)
         .where(eq(automation.workspaceId, job.workspaceId));
-      const automatic =
-        !options.draftOnly && mayAutoPublish(policy, job.autoVersion);
+      const automatic = mayAutoApprove(policy, job.autoVersion);
       article = {
         id: `post-${digest(job.sourceUrl).slice(0, 24)}`,
         ...source,
@@ -258,7 +268,7 @@ export async function runImportJob(
           ...note,
           id: `note-${index}`,
           original: note.text,
-          approved: automatic && index < policy.notesPerPost,
+          approved: automatic,
         })),
       };
       const [persisted] = await db()
@@ -274,90 +284,14 @@ export async function runImportJob(
         return stopped;
       }
     }
-    const stored = await appendArticle(id, job.workspaceId, article);
-    // Never publish a changed version or retroactively publish a pre-existing import.
-    const candidates = (stored.id === article.id ? stored.notes : []).filter(
-      (note) =>
-        note.approved &&
-        article?.notes.some(
-          (original) =>
-            original.id === note.id &&
-            original.text === note.text &&
-            original.approved,
-        ),
-    );
-    let attention = false;
-    const [policy] = await db()
-      .select()
-      .from(automation)
-      .where(eq(automation.workspaceId, job.workspaceId));
-    if (
-      !options.draftOnly &&
-      mayAutoPublish(policy, job.autoVersion) &&
-      candidates.length
-    ) {
-      const { channels } = await dependencies.channels(job.workspaceId);
-      const channel = channels.find(
-        (channel) => channel.id === policy.channelId,
-      );
-      if (
-        !channel ||
-        channel.isDisconnected ||
-        channel.isLocked ||
-        channel.isQueuePaused ||
-        !channel.allowedActions.includes("scheduleUpdates")
-      )
-        throw new ImportError(
-          "Check your Substack channel in Buffer. Your Notes were saved.",
-        );
-      const token = await dependencies.token(job.workspaceId);
-      for (const candidate of candidates.slice(0, policy.notesPerPost)) {
-        const [activeJob] = await db()
-          .select({ state: importJobs.state })
-          .from(importJobs)
-          .where(eq(importJobs.id, id));
-        if (activeJob?.state !== "running") break;
-        const [current] = await db()
-          .select()
-          .from(automation)
-          .where(eq(automation.workspaceId, job.workspaceId));
-        if (!mayAutoPublish(current, job.autoVersion)) break;
-        const [fresh] = await db()
-          .select()
-          .from(workspaces)
-          .where(eq(workspaces.id, job.workspaceId));
-        const currentArticle = fresh?.document.articles.find(
-          (post) => post.id === stored.id,
-        );
-        const note = currentArticle?.notes.find(
-          (note) =>
-            note.id === candidate.id &&
-            note.approved &&
-            note.text === candidate.text,
-        );
-        if (!note || !currentArticle) continue;
-        const sent = await dependencies.send({
-          workspaceId: job.workspaceId,
-          article: currentArticle,
-          note,
-          channelId: channel.id,
-          token,
-          mode: "now",
-        });
-        if (!sent || ["error", "unknown", "creating"].includes(sent.status)) {
-          attention = true;
-          break;
-        }
-      }
-    }
+    // Import jobs have no publishing dependency. Approval never creates a delivery.
+    await appendArticle(id, job.workspaceId, article, job.autoVersion);
     const [saved] = await db()
       .update(importJobs)
       .set({
-        state: attention ? "attention" : "done",
-        ...(!attention ? { article: null } : {}),
-        error: attention
-          ? "Check publishing activity in Buffer. No automatic resend will be attempted."
-          : null,
+        state: "done",
+        article: null,
+        error: null,
       })
       .where(and(eq(importJobs.id, id), eq(importJobs.state, "running")))
       .returning();

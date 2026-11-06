@@ -32,10 +32,10 @@ export default function Privacy() {
       <p>
         We request account-read and post-read/write access. Tokens are encrypted
         at rest. By default, every Note needs your approval. If you explicitly
-        enable Auto-publish in Settings, the selected number of AI-written Notes
-        can publish immediately to your chosen channel without individual
-        review. Existing imported posts are not automatically included. Turning
-        the mode off stops future sends; an in-flight send may finish.
+        enable Auto-approve in Settings, newly generated Notes start approved.
+        You can unapprove, edit and approve them again. Nothing publishes or
+        schedules automatically: you must explicitly choose to share through
+        Buffer. Existing imported Notes are not automatically changed.
         Unconfirmed publishing requests are never resent automatically.
         Disconnect in Settings to remove substuff’s stored credentials; you can
         also revoke access in Buffer’s account settings. Removing the connection
@@ -50,8 +50,8 @@ export default function Privacy() {
         workspace for duplicate prevention and delivery status. Local browser
         backups remain until you clear them or clear browser storage. Clearing
         also removes resumable article copies from import jobs. Feed and
-        publishing preferences stay unchanged. Signing out closes access on this
-        browser; it does not disable feed checks or Auto-publish.
+        approval preferences stay unchanged. Signing out closes access on this
+        browser; it does not disable feed checks or Auto-approve.
       </p>
       <h2>Security and hosting</h2>
       <p>

@@ -24,7 +24,6 @@ export function ImportPage() {
     const settings = client.getQueryData<AutoSettings>(autoQuery.queryKey);
     const selected = intent || {
       version: settings?.version || 0,
-      publishNow: settings?.enabled || false,
     };
     let publication: ReturnType<typeof parsePublicationUrl> | null = null;
     try {
@@ -51,7 +50,6 @@ export function ImportPage() {
         body: JSON.stringify({
           url,
           automationVersion: selected.version,
-          publishNow: selected.publishNow,
         }),
         signal: AbortSignal.timeout(170000),
       },

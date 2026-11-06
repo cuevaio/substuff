@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BufferPreferences } from "@/components/buffer-panel";
 import {
-  AutoPublishSettings,
+  AutoApproveSettings,
   PublicationSettings,
   SignOutButton,
 } from "@/components/publication-settings";
@@ -25,7 +25,7 @@ export function SettingsPage() {
         beforeChange={workspace.flush}
         onConnect={() => router.push("/import")}
       />
-      <AutoPublishSettings beforeChange={workspace.flush} />
+      <AutoApproveSettings beforeChange={workspace.flush} />
       <div className="settings-links">
         <Link href="/privacy" className="text-button">
           Privacy
@@ -43,7 +43,7 @@ export function SettingsPage() {
         <div className="clear-confirm">
           <p>
             Delete imported posts and edits? Scheduled Notes stay in Buffer.
-            Feed and auto-publish preferences won’t change.
+            Feed and auto-approve preferences won’t change.
           </p>
           <Button
             variant="secondary"

@@ -27,7 +27,6 @@ export function ImportForm({
     mutationFn: (url: string) =>
       onImport(url, {
         version: settings.data?.version ?? 0,
-        publishNow: settings.data?.enabled ?? false,
       }),
     onError: () => {
       void client.invalidateQueries({ queryKey: autoQuery.queryKey });
@@ -67,19 +66,11 @@ export function ImportForm({
           {mutation.isPending ? (
             <>
               <LoaderCircle size={16} className="spinner" />
-              {publication
-                ? "Connecting…"
-                : settings.data?.enabled
-                  ? "Publishing…"
-                  : "Importing…"}
+              {publication ? "Connecting…" : "Importing…"}
             </>
           ) : (
             <>
-              {publication
-                ? "Connect feed"
-                : settings.data?.enabled
-                  ? "Import & publish"
-                  : "Create Notes"}
+              {publication ? "Connect feed" : "Create Notes"}
               <ArrowRight size={16} />
             </>
           )}
@@ -87,7 +78,8 @@ export function ImportForm({
       </div>
       {settings.data?.enabled && (
         <p className="input-caption">
-          Auto-publish is on. New imports publish without review.
+          Auto-approve is on. New Notes start approved; nothing publishes
+          automatically.
         </p>
       )}
       {settings.error && (

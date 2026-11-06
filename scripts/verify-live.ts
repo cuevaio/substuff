@@ -18,7 +18,6 @@ const requests = [
     body: {
       url: "https://cuevaio.substack.com",
       automationVersion: 0,
-      publishNow: false,
     },
   },
   {
@@ -27,7 +26,6 @@ const requests = [
     body: {
       url: "https://cuevaio.substack.com/p/actually-building-with-ai",
       automationVersion: 0,
-      publishNow: false,
     },
   },
   {

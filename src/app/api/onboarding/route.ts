@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { importJobs, publications, workspaces } from "@/db/schema";
+import { automation, importJobs, publications, workspaces } from "@/db/schema";
 import { readAccountSession } from "@/lib/account-session";
 import { substackChannels } from "@/lib/buffer";
 import { fetchPublicationFeed } from "@/lib/feed";
@@ -103,9 +103,16 @@ export async function POST(request: Request) {
                 })),
               )
               .onConflictDoNothing();
-            const job = await enqueueImport(workspace.id, feed.posts[0].url);
+            const [policy] = await db()
+              .select()
+              .from(automation)
+              .where(eq(automation.workspaceId, workspace.id));
+            const job = await enqueueImport(
+              workspace.id,
+              feed.posts[0].url,
+              policy?.version ?? 0,
+            );
             const result = await runImportJob(job.id, undefined, true, {
-              draftOnly: true,
               onProgress: (step) => emit({ step }),
             });
             if (result.state !== "done")

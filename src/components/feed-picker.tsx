@@ -17,14 +17,13 @@ export function FeedPicker({
     mutationFn: (url: string) =>
       onImport(url, {
         version: automatic.data?.version ?? 0,
-        publishNow: automatic.data?.enabled ?? false,
       }),
   });
   return (
     <>
       <p className="dialog-description">
         {automatic.data?.enabled
-          ? "New posts publish automatically when checked. Earlier posts only publish when you choose them."
+          ? "New posts import daily with approved Notes. Nothing publishes automatically. Choose an earlier post to import now."
           : "New posts import daily as drafts. Choose any earlier post to import now."}
       </p>
       {!posts.length && (
@@ -47,9 +46,7 @@ export function FeedPicker({
                 ? "Importing…"
                 : imported.includes(post.url)
                   ? "Open"
-                  : automatic.data?.enabled
-                    ? "Import & publish"
-                    : "Import"}
+                  : "Import"}
             </button>
           </li>
         ))}

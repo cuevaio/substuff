@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { automation, importJobs, publications } from "@/db/schema";
 import { readAccountSession as readSession } from "@/lib/account-session";
-import { mayAutoPublish } from "@/lib/automation-policy";
 import { fetchPublicationFeed } from "@/lib/feed";
 import { discoverFeed } from "@/lib/feed-sync";
 import { claimQuota } from "@/lib/generation-limit";
@@ -58,15 +57,10 @@ export async function POST(request: Request) {
       .select()
       .from(automation)
       .where(eq(automation.workspaceId, workspace.id));
-    if (
-      (policy?.version ?? 0) !== body.automationVersion ||
-      (mayAutoPublish(policy, policy?.version ?? null) &&
-        body.publishNow !== true)
-    )
+    if ((policy?.version ?? 0) !== body.automationVersion)
       return NextResponse.json(
         {
-          error:
-            "Publishing preferences changed. Review them before connecting.",
+          error: "Approval preferences changed. Review them before connecting.",
         },
         { status: 409 },
       );

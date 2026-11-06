@@ -141,8 +141,8 @@ export function NoteCard({
                   disabled={!ready}
                   onSelect={onEdit}
                 >
-                  <Edit size={15} />
-                  Edit Note
+                  <RotateCcw size={15} />
+                  Unapprove Note
                 </DropdownMenu.Item>
               )}
               {state === "to-approve" && (

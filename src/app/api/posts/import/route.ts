@@ -4,7 +4,6 @@ import { z } from "zod";
 import { db } from "@/db";
 import { automation, workspaces } from "@/db/schema";
 import { readAccountSession as readSession } from "@/lib/account-session";
-import { mayAutoPublish } from "@/lib/automation-policy";
 import { substackChannels } from "@/lib/buffer";
 import { claimQuota } from "@/lib/generation-limit";
 import { enqueueImport, runImportJob } from "@/lib/import-jobs";
@@ -17,7 +16,6 @@ export const maxDuration = 180;
 const inputSchema = z.object({
   url: z.string().max(2048),
   automationVersion: z.number().int().nonnegative(),
-  publishNow: z.boolean().default(false),
 });
 export async function POST(request: Request) {
   if (!sameOrigin(request))
@@ -54,14 +52,10 @@ export async function POST(request: Request) {
       .select()
       .from(automation)
       .where(eq(automation.workspaceId, workspace.id));
-    if (
-      (policy?.version ?? 0) !== input.automationVersion ||
-      (mayAutoPublish(policy, policy?.version ?? null) && !input.publishNow)
-    )
+    if ((policy?.version ?? 0) !== input.automationVersion)
       return NextResponse.json(
         {
-          error:
-            "Publishing preferences changed. Review them before importing.",
+          error: "Approval preferences changed. Review them before importing.",
         },
         { status: 409 },
       );

@@ -1,9 +1,9 @@
-export const AUTO_POLICY_VERSION = 1;
-export function mayAutoPublish(
+// Version 1 authorized immediate publication. It must never enable this new mode.
+export const AUTO_POLICY_VERSION = 2;
+export function mayAutoApprove(
   config:
     | {
         enabled: boolean;
-        channelId: string | null;
         version: number;
         consentAt: Date | null;
         policyVersion: number;
@@ -13,7 +13,6 @@ export function mayAutoPublish(
 ) {
   return Boolean(
     config?.enabled &&
-      config.channelId &&
       config.consentAt &&
       config.policyVersion === AUTO_POLICY_VERSION &&
       jobVersion !== null &&

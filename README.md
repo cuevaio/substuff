@@ -32,7 +32,7 @@ Buffer sign-in and an active Substack channel are required. Actual AI generation
 ## Implemented
 
 - Continue with Buffer, connect an active Substack channel, then add your publication. No guest/demo entry point, article-creation or paste flow.
-- First-run onboarding streams real content-fetch, idea/voice-analysis and writing progress. The latest published post produces source-linked, unapproved suggestions; onboarding never auto-publishes.
+- First-run onboarding streams real content-fetch, idea/voice-analysis and writing progress. The latest published post produces source-linked suggestions, unapproved by default. Auto-approve applies if explicitly enabled on an existing account. Onboarding never publishes.
 - Plain-text Notes with three states: To approve, Approved and Posted. Only To approve is editable. Approved Notes offer Edit; queued copies require confirmed cancellation first. Posted Notes are permanently read-only and show their delivered text snapshot. Server-side guards enforce the same rules.
 - Feed-style Notes use the connected Substack channel’s real profile photo/name, exposed by Buffer. Icon-only Approve/Edit actions have accessible labels and tooltips; quiet Approved/Posted states sit in the byline. The three-dot menu contains Show source, Copy text, Restore original and a per-Note article-card preference. Legacy rich documents stay storage-compatible; choosing Edit returns them to plain text.
 - Compact split editor with no Note numbers and a hideable, independently scrolling formatted original. Imported HTML is allowlist-sanitized; existing plain-text imports can fetch their public formatted source without replacing saved edits.
@@ -47,7 +47,8 @@ Buffer sign-in and an active Substack channel are required. Actual AI generation
 - Collapsible shadcn sidebar, Select, Calendar/Popover date picker and minimal sharing/settings dialogs. TanStack Query caches shared server reads; publishing mutations never retry automatically.
 - Safe post import through a fixed Substack API path: HTTPS publication hosts only, no redirects, bounded response size/deadline, no paywall bypass. Re-importing a canonical source opens its existing Notes without overwriting edits.
 - Publication RSS import with a recent-post picker. Initial feed items are baselined, not silently imported/published; new posts are checked daily by the existing authenticated cron. Check now processes one pending import immediately.
-- Opt-in immediate Auto-publish: select the Substack channel, choose up to 1–3 Notes per post, and explicitly consent to public AI-written Notes without individual review. Default is off. Consent is versioned and rechecked before each send. Existing imported posts and previously queued draft-only jobs are not retroactively published.
+- Opt-in Auto-approve: all new generated Notes start approved. Default is off. Unapprove a Note from its menu, edit it and approve it again. Existing Notes and previously queued unapproved imports are not retroactively changed. The preference is versioned and rechecked when saving generated Notes. Legacy auto-publish consent does not enable this new mode.
+- Import/feed workers have no publishing dependency and never create Buffer deliveries. Sharing and scheduling always require a deliberate final action, even with Auto-approve on.
 - Server-owned durable import jobs, exact original source passages resolved from model-selected passage IDs, safe interrupted-job handling, and protected sign-out/fresh-session workspace recovery.
 
 ### Article previews and plain text
@@ -66,7 +67,7 @@ Articles are sent through AI Gateway during onboarding, deliberate imports and c
 
 Generation requires authentication and is rate-limited, with a separate dedicated key budget. Behind Vercel, only its trusted client-IP header is used; local runs share a local bucket. Missing quota configuration disables generation. Failed model attempts still consume quota.
 
-By default publishing requires exact approved text and a selected Substack channel. Public scheduling also requires a deliberate final action and valid future times. Auto-publish is a separate, explicit opt-in for newly imported AI Notes; first-run onboarding is always draft-only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer or signing out does not cancel remote posts; signing out does not disable automation.
+Sharing requires exact approved text and a selected Substack channel. Public scheduling also requires a deliberate final action and valid future times. Auto-approve only changes the initial approval state of new generated Notes: nothing publishes or schedules automatically. Delivery keys prevent resending a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer or signing out does not cancel remote posts; signing out does not disable feed checks or auto-approval.
 
 **Limits:** no custom-domain imports, real-time feed webhooks, standalone account provider or billing. The Hobby deployment checks feeds daily at 08:00 UTC, checks up to five publications and processes at most two import jobs per cron invocation. Imports are capped at ten model jobs per workspace/day and fifty globally/day, plus the dedicated $5/month provider-key cap. Failed generation needs a deliberate retry; uncertain sends never retry automatically. See [QA.md](QA.md) for live acceptance evidence and remaining gaps.
 
