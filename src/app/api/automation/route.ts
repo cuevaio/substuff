@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { automation } from "@/db/schema";
+import { readAccountSession as readSession } from "@/lib/account-session";
 import { AUTO_POLICY_VERSION } from "@/lib/automation-policy";
 import { substackChannels } from "@/lib/buffer";
-import { readSession, sameOrigin } from "@/lib/session";
+import { sameOrigin } from "@/lib/session";
 
 const headers = { "Cache-Control": "private, no-store" };
 export async function GET() {

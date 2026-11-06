@@ -103,6 +103,10 @@ function dependencies(overrides: Partial<ImportServices> = {}): ImportServices {
       sourceUrl: url,
     }),
     generate: async () => structuredClone(drafts),
+    analyze: async () => ({
+      ideas: ["Consent is required."],
+      style: "Concise first-person observations with qualifications.",
+    }),
     budget: async () => true,
     channels: async () => ({
       accountName: "QA fixture",
@@ -128,7 +132,56 @@ function dependencies(overrides: Partial<ImportServices> = {}): ImportServices {
   };
 }
 try {
+  stage = "onboarding is draft-only even with an enabled automation policy";
+  const onboarding = await workspace(true, 2);
+  const onboardingJob = await enqueueImport(onboarding, source, 1);
+  const progress: string[] = [];
+  let voiceUsed = false;
+  const onboardingResult = await runImportJob(
+    onboardingJob.id,
+    dependencies({
+      generate: async (input) => {
+        voiceUsed = Boolean(input.voice?.style);
+        return structuredClone(drafts);
+      },
+    }),
+    true,
+    { draftOnly: true, onProgress: (step) => progress.push(step) },
+  );
+  assert.equal(onboardingResult.state, "done");
+  assert.deepEqual(progress, ["content", "understanding", "style", "writing"]);
+  assert.equal(voiceUsed, true);
+  assert.equal(calls, 0);
+  const [onboarded] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, onboarding));
+  assert.ok(
+    onboarded.document.articles[0].notes.every((note) => !note.approved),
+  );
+
   stage = "draft default";
+  const badAnalysis = await workspace(true);
+  const badAnalysisJob = await enqueueImport(badAnalysis, source);
+  let prematureGeneration = false;
+  const guarded = await runImportJob(
+    badAnalysisJob.id,
+    dependencies({
+      analyze: async () => {
+        throw new Error("QA analysis failure");
+      },
+      generate: async () => {
+        prematureGeneration = true;
+        return structuredClone(drafts);
+      },
+    }),
+    true,
+    { draftOnly: true, onProgress: () => {} },
+  );
+  assert.equal(guarded.state, "failed");
+  assert.equal(prematureGeneration, false);
+  assert.equal(calls, 0);
+
   const manual = await workspace();
   const manualJob = await enqueueImport(manual, source);
   const manualResult = await runImportJob(manualJob.id, dependencies());

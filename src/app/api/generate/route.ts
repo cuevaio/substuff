@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readAccountSession } from "@/lib/account-session";
 import { articleInput } from "@/lib/content";
 import { safeDiagnostic } from "@/lib/generate";
 import { claimGeneration } from "@/lib/generation-limit";
@@ -62,6 +63,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   try {
+    if (!(await readAccountSession()))
+      return NextResponse.json(
+        { error: "Continue with Buffer to create Notes." },
+        { status: 401 },
+      );
     if (!(await claimGeneration(request)))
       return NextResponse.json(
         {

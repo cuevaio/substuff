@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Check,
@@ -18,15 +18,18 @@ import {
   BufferPanel,
   BufferPreferences,
   connectBuffer,
+  connectionQuery,
 } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
 import { FeedPicker } from "@/components/feed-picker";
 import { ImportForm } from "@/components/import-form";
+import { Onboarding } from "@/components/onboarding";
 import {
   AutoPublishSettings,
   PublicationSettings,
   SignOutButton,
 } from "@/components/publication-settings";
+import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type AutoSettings,
@@ -37,10 +40,10 @@ import {
   type Article,
   exportNotes,
   type Note,
-  sampleArticle,
   workspaceSchema,
 } from "@/lib/content";
 import type { FeedPost } from "@/lib/feed";
+import { hasSubstackChannel } from "@/lib/onboarding";
 import { parsePublicationUrl, parseSubstackUrl } from "@/lib/substack-url";
 
 const STORAGE = "substuff.workspace.v1";
@@ -88,6 +91,101 @@ function AutoTextarea({
 }
 
 export default function Home() {
+  const connection = useQuery({ ...connectionQuery, retry: false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (connection.isPending)
+    return (
+      <div className="boot" role="status" aria-label="Opening substuff">
+        <Mark />
+      </div>
+    );
+  if (
+    connection.data?.connected &&
+    hasSubstackChannel(connection.data.channels)
+  )
+    return <WorkspaceHome />;
+  const connected = connection.data?.connected;
+  return (
+    <div className="welcome-shell">
+      <header className="welcome-header">
+        <Brand />
+        <a href="/privacy" className="text-button">
+          Privacy
+        </a>
+      </header>
+      <main id="main" className="welcome">
+        <div className="welcome-copy">
+          <h1>
+            {connected ? "Connect your Substack." : "Your writing, continued."}
+          </h1>
+          <p>
+            {connected
+              ? "Add your Substack channel in Buffer, then come back here."
+              : "Turn your published Substack posts into Notes that sound like you."}
+          </p>
+          {connected ? (
+            <>
+              <Button asChild>
+                <a
+                  href="https://publish.buffer.com/channels"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Buffer <ArrowRight size={15} />
+                </a>
+              </Button>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void connection.refetch()}
+              >
+                I’ve connected Substack
+              </button>
+              <SignOutButton beforeSignOut={async () => {}} />
+            </>
+          ) : (
+            <Button
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await connectBuffer(async () => {});
+                } catch (cause) {
+                  setError(
+                    cause instanceof Error
+                      ? cause.message
+                      : "Couldn’t start sign-in.",
+                  );
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? "Connecting…" : "Continue with Buffer"}
+              <ArrowRight size={15} />
+            </Button>
+          )}
+          <p className="input-caption">
+            {connected
+              ? "Your saved writing stays safe."
+              : "Connect your Substack channel through Buffer to get started."}
+          </p>
+          {(error || connection.error || connection.data?.error) && (
+            <p className="inline-error" role="alert">
+              {error || connection.error?.message || connection.data?.error}{" "}
+              <button type="button" onClick={() => void connection.refetch()}>
+                Try again
+              </button>
+            </p>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function WorkspaceHome() {
   const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -112,7 +210,12 @@ export default function Home() {
   const cloudPaused = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const article = articles.find((a) => a.id === activeId) ?? articles[0];
+  // Preserve historical sample records/receipts, but demo writing is no longer a product mode.
+  const writingArticles = articles.filter(
+    (article) => article.mode !== "sample",
+  );
+  const article =
+    writingArticles.find((a) => a.id === activeId) ?? writingArticles[0];
   const approved = article?.notes.filter((n) => n.approved) ?? [];
   const visibleNotes =
     article?.notes.filter((n) => filter !== "approved" || n.approved) ?? [];
@@ -141,8 +244,8 @@ export default function Home() {
           const remote = data.document
             ? workspaceSchema.parse(data.document)
             : null;
-          // The server is authoritative for an established session. New sessions may import local work.
-          const restored = remote ?? local;
+          // Only authenticated server data can establish an account workspace.
+          const restored = remote;
           if (restored) {
             setArticles(restored.articles);
             setActiveId(restored.activeId);
@@ -293,23 +396,8 @@ export default function Home() {
     setSourceId(null);
   }
 
-  function addArticle(next: Article) {
-    setArticles((previous) => [
-      next,
-      ...previous.filter((a) => a.id !== next.id),
-    ]);
-    selectArticle(next.id);
-    setModal(null);
-  }
-
   function openArticle() {
     setModal("article");
-  }
-
-  function loadSample() {
-    const existing = articles.find((a) => a.id === sampleArticle.id);
-    if (existing) selectArticle(existing.id);
-    else addArticle(structuredClone(sampleArticle));
   }
 
   function updateNote(id: string, changes: Partial<Note>) {
@@ -439,46 +527,28 @@ export default function Home() {
       </div>
     );
 
+  if (!article)
+    return (
+      <Onboarding
+        beforeStart={flushWorkspace}
+        onReady={(document, nextRevision) => {
+          revision.current = nextRevision;
+          setArticles(document.articles);
+          selectArticle(
+            document.articles.find((article) => article.mode !== "sample")
+              ?.id || "",
+          );
+          void queryClient.invalidateQueries({ queryKey: ["feed"] });
+        }}
+      />
+    );
+
   return (
     <>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      {!article ? (
-        <div className="welcome-shell">
-          <header className="welcome-header">
-            <Brand />
-            <a href="/privacy" className="text-button">
-              Privacy
-            </a>
-          </header>
-          <main id="main" className="welcome">
-            <div className="welcome-copy">
-              <h1>More from every post.</h1>
-              <p>Turn your published Substack posts into Notes.</p>
-              <ImportForm onImport={importArticle} />
-              <button
-                type="button"
-                className="text-button sample-link"
-                onClick={loadSample}
-              >
-                Try an example <ArrowRight size={14} />
-              </button>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  void connectBuffer(flushWorkspace).catch((cause) =>
-                    setToast(cause.message),
-                  );
-                }}
-              >
-                Sign in with Buffer
-              </button>
-            </div>
-          </main>
-        </div>
-      ) : (
+      {
         <SidebarProvider
           open={sidebarOpen}
           onOpenChange={setSidebarOpen}
@@ -490,7 +560,7 @@ export default function Home() {
           }
         >
           <AppSidebar
-            articles={articles}
+            articles={writingArticles}
             activeId={article.id}
             onSelect={selectArticle}
             onImport={openArticle}
@@ -521,9 +591,6 @@ export default function Home() {
                 </p>
               )}
               <div className="article-heading">
-                {article.mode === "sample" && (
-                  <span className="sample-badge">Example</span>
-                )}
                 <h1>{article.title}</h1>
                 {article.sourceUrl && (
                   <a
@@ -732,7 +799,7 @@ export default function Home() {
             </footer>
           </div>
         </SidebarProvider>
-      )}
+      }
 
       {modal === "article" && (
         <Dialog

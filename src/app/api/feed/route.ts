@@ -3,12 +3,13 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { automation, importJobs, publications } from "@/db/schema";
+import { readAccountSession as readSession } from "@/lib/account-session";
 import { mayAutoPublish } from "@/lib/automation-policy";
 import { fetchPublicationFeed } from "@/lib/feed";
 import { discoverFeed } from "@/lib/feed-sync";
 import { claimQuota } from "@/lib/generation-limit";
 import { runImportJob } from "@/lib/import-jobs";
-import { readSession, sameOrigin } from "@/lib/session";
+import { sameOrigin } from "@/lib/session";
 import { parsePublicationUrl } from "@/lib/substack-url";
 
 export const maxDuration = 180;

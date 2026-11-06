@@ -27,14 +27,14 @@ See `.env.example`. Keep real values in ignored `.env.local` (0600) and the matc
 - `BUFFER_CLIENT_ID`, `BUFFER_CLIENT_SECRET`, `BUFFER_REDIRECT_URI`: confidential OAuth client with account-read and post-read/write scopes. Register the exact HTTPS callback and privacy URL in Buffer.
 - `TOKEN_ENCRYPTION_KEY`: 32 random bytes encoded as 64 hexadecimal characters; server-only, used for context-bound AES-GCM token encryption.
 
-No credentials are necessary for sample/excerpt editing. Actual AI generation requires Gateway + Neon configuration and a deliberate user action. Sources are validated against the article, but human editorial verification remains essential.
+Buffer sign-in and an active Substack channel are required. Actual AI generation requires Gateway + Neon configuration and a deliberate user action or an authorized connected feed. Sources are validated against the article, but human editorial verification remains essential.
 
 ## Implemented
 
-- Start without signup, import a published Substack post by link, or explore a labeled example. There is no article-creation or paste flow.
-- Source-linked AI drafts or explicitly labeled exact excerpts.
+- Continue with Buffer, connect an active Substack channel, then add your publication. No guest/demo entry point, article-creation or paste flow.
+- First-run onboarding streams real content-fetch, idea/voice-analysis and writing progress. The latest published post produces source-linked, unapproved suggestions; onboarding never auto-publishes.
 - Inline editing, approval invalidated on edit, copy, draft restore confirmation, approved-only export.
-- Drizzle/Neon private guest workspace with browser-local backup, serialized autosave, optimistic revision conflicts, clear-data control.
+- Drizzle/Neon account workspace with browser-local backup, serialized autosave, optimistic revision conflicts, clear-data control. Historical samples stay preserved in storage but are hidden from the product.
 - shadcn/Radix dialogs and button primitives with custom Mercury styling.
 - Biome, pre-commit/pre-push checks, GitHub CI, Vercel Git integration.
 - Buffer OAuth/PKCE, encrypted credentials, serialized refresh, Substack channel discovery, explicit approved-version draft/schedule requests, persisted delivery receipts and cancellation.
@@ -47,13 +47,13 @@ No credentials are necessary for sample/excerpt editing. Actual AI generation re
 
 ## Privacy and boundaries
 
-Guest access is a random HttpOnly cookie, not an account. Guest-only workspaces cannot be recovered after losing the cookie. Connecting Buffer binds a canonical workspace to that account, allowing recovery through OAuth in another browser while the workspace exists. Workspaces expire after 30 days of inactivity; daily cleanup removes expired workspace, session, OAuth-attempt and quota rows. Export important work.
+An HttpOnly cookie binds access to an authenticated Buffer account. Temporary pre-OAuth cookies cannot open/save a workspace, import posts or generate Notes. The same Buffer account can recover its canonical workspace through OAuth while the workspace exists. Workspaces expire after 30 days of inactivity; daily cleanup removes expired workspace, session, OAuth-attempt and quota rows. Export important work.
 
-Articles are sent through AI Gateway to Google Gemini (or OpenAI on fallback) only on Create Notes. Drafts are stored in Neon for the guest workspace and backed up in localStorage. Clearing the workspace overwrites its stored document. Don't paste private material without permission.
+Articles are sent through AI Gateway during onboarding, deliberate imports and connected-feed processing. Onboarding makes one bounded idea/voice analysis request before the normal grounded generation. Drafts are stored in Neon and backed up in localStorage. Clearing the workspace overwrites its stored document.
 
-Public generation is limited to ten attempts per UTC day per hashed IP, with a separate dedicated key budget. Behind Vercel, only its trusted client-IP header is used; local runs share a local bucket. Missing quota configuration disables generation. Failed model attempts still consume quota. The AI Gateway budget is the final spend boundary, not application-level authentication.
+Generation requires authentication and is rate-limited, with a separate dedicated key budget. Behind Vercel, only its trusted client-IP header is used; local runs share a local bucket. Missing quota configuration disables generation. Failed model attempts still consume quota.
 
-By default publishing requires exact approved text and a selected Substack channel. Public scheduling also requires a deliberate final action and valid future times. Auto-publish is a separate, explicit opt-in for newly imported AI Notes. Samples can create private drafts only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer or signing out does not cancel remote posts; signing out does not disable automation.
+By default publishing requires exact approved text and a selected Substack channel. Public scheduling also requires a deliberate final action and valid future times. Auto-publish is a separate, explicit opt-in for newly imported AI Notes; first-run onboarding is always draft-only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer or signing out does not cancel remote posts; signing out does not disable automation.
 
 **Limits:** no custom-domain imports, real-time feed webhooks, standalone account provider or billing. The Hobby deployment checks feeds daily at 08:00 UTC, checks up to five publications and processes at most two import jobs per cron invocation. Imports are capped at ten model jobs per workspace/day and fifty globally/day, plus the dedicated $5/month provider-key cap. Failed generation needs a deliberate retry; uncertain sends never retry automatically. See [QA.md](QA.md) for live acceptance evidence and remaining gaps.
 
@@ -76,7 +76,8 @@ With the configured production-mode local server running:
 
 ```sh
 bun scripts/verify-live.ts
-bun scripts/verify-live.ts --ai # one real, metered generation using the sample article
 ```
+
+This smoke test verifies the mandatory sign-in boundary, guest-cookie isolation and origin guards without generating or publishing content. Authenticated workflow acceptance is recorded in `QA.md`.
 
 See [PLAN.md](PLAN.md) and [QA.md](QA.md) for scope and verified acceptance evidence.

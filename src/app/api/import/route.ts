@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readAccountSession } from "@/lib/account-session";
 import { claimQuota } from "@/lib/generation-limit";
 import { sameOrigin } from "@/lib/session";
 import { ImportError, importSubstackPost } from "@/lib/substack";
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
     );
   }
   try {
+    if (!(await readAccountSession()))
+      return NextResponse.json(
+        { error: "Continue with Buffer to import a post." },
+        { status: 401 },
+      );
     if (!process.env.DATABASE_URL || !process.env.RATE_LIMIT_SALT)
       return NextResponse.json(
         { error: "Importing is temporarily unavailable. Try again later." },

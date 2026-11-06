@@ -4,9 +4,9 @@ One article → a few good Notes → a quick edit → an approved week.
 
 ## Journey
 
-1. **Start:** link a published Substack post, or try a clearly labeled example. No article creation, pasted-article editor, questionnaire or premature Buffer consent.
+1. **Start:** Continue with Buffer and connect a Substack channel. Add a publication link; first-run onboarding reads the latest post, analyzes its ideas/voice and writes unapproved suggestions. No guest/demo entry, article creation or pasted-article editor.
 2. **Review:** collapsible post navigation, editable Notes and an optional source passage. Autosave. Approve or skip. Undo changes.
-3. **Schedule:** select approved Notes and dates. Connect Buffer here, not before value. Never call a local draft “scheduled.”
+3. **Schedule:** select approved Notes and dates. Never call a local draft “scheduled.” Immediate automation remains a separate explicit opt-in, never part of onboarding.
 4. **Return:** resume the last article and edits. Later, a connected feed brings the next article into the same workflow.
 
 ## Design
@@ -29,13 +29,14 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] Published Substack post-link import, canonical source links and repeat-import protection that preserves edits.
 - [x] Connected-feed discovery and safe daily background import. Initial backlog is opt-in; manual feed checks are available.
 - [x] Explicit opt-in for immediate public AI Notes, versioned consent, channel/count selection, bounded jobs, opt-out checks and duplicate-send ledger.
+- [x] Required Buffer sign-in and Substack channel, no demo entry point, streamed first-run content/style onboarding with real draft generation.
 - [ ] Source-change versioning, real-time feed ingestion and weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 
 ## First-slice boundaries
 
-Guest-first workspace with Buffer OAuth account recovery and browser-session revocation. Default is private drafts and manual approval. Auto-publish is off until the writer explicitly authorizes immediate, public AI-written Notes for a chosen channel and count. Only publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Source references are resolved to exact original passages on the server. Clear-data control removes imported writing and resumable copies but does not cancel remote posts or disconnect the feed. Privacy details stay on the privacy page, not throughout the writing interface.
+Buffer-authenticated workspace with account recovery and browser-session revocation. Temporary OAuth guest cookies are not account authentication. Default is private drafts and manual approval, including all first-run onboarding. Auto-publish is off until the writer explicitly authorizes immediate, public AI-written Notes for a chosen channel and count. Only publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Source references are resolved to exact original passages on the server. Clear-data control removes imported writing and resumable copies but does not cancel remote posts or disconnect the feed. Privacy details stay on the privacy page, not throughout the writing interface.
 
 ## Ship gate
 
-Build/typecheck/tests pass. Browser-check first visit, sample, paste, edit, reload, approve, undo, export, keyboard dialog navigation, mobile and empty states. Production OAuth, private drafts and one approved public scheduled delivery pass, along with induced token renewal and same-account reconnect. Cross-browser recovery, scheduled cancellation and account-switch acceptance remain open; obtain approval before any additional public test post.
+Build/typecheck/tests pass. Browser-check required sign-in, channel gate, onboarding, edit, reload, approve, undo, export, keyboard dialogs, mobile and empty states. Production OAuth, private drafts, approved public delivery, scheduled cancellation and fresh-session recovery pass. Separate-device/browser and account-switch acceptance remain open; obtain approval before any additional public test post.

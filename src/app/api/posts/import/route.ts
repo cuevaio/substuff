@@ -3,10 +3,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { automation, workspaces } from "@/db/schema";
+import { readAccountSession as readSession } from "@/lib/account-session";
 import { mayAutoPublish } from "@/lib/automation-policy";
+import { substackChannels } from "@/lib/buffer";
 import { claimQuota } from "@/lib/generation-limit";
 import { enqueueImport, runImportJob } from "@/lib/import-jobs";
-import { readSession, sameOrigin } from "@/lib/session";
+import { hasSubstackChannel } from "@/lib/onboarding";
+import { sameOrigin } from "@/lib/session";
 import { ImportError } from "@/lib/substack";
 import { parseSubstackUrl } from "@/lib/substack-url";
 
@@ -40,6 +43,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Save your workspace before importing." },
         { status: 401 },
+      );
+    const { channels } = await substackChannels(workspace.id);
+    if (!hasSubstackChannel(channels))
+      return NextResponse.json(
+        { error: "Connect your Substack channel in Buffer first." },
+        { status: 403 },
       );
     const [policy] = await db()
       .select()

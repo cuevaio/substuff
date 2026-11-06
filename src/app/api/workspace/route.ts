@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
 import { importJobs, workspaces } from "@/db/schema";
+import { readAccountSession as readSession } from "@/lib/account-session";
 import { workspaceSchema } from "@/lib/content";
-import { claimQuota } from "@/lib/generation-limit";
-import { createSession, readSession, sameOrigin } from "@/lib/session";
+import { sameOrigin } from "@/lib/session";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "private, no-store" };
@@ -69,18 +69,12 @@ export async function PUT(request: Request) {
       { status: 400 },
     );
   try {
-    let workspace = await readSession();
-    if (!workspace) {
-      if (!(await claimQuota(request, "workspace", 20)))
-        return NextResponse.json(
-          {
-            error:
-              "Workspace creation is temporarily limited. Your writing is safe on this device.",
-          },
-          { status: 429 },
-        );
-      workspace = await createSession();
-    }
+    const workspace = await readSession();
+    if (!workspace)
+      return NextResponse.json(
+        { error: "Continue with Buffer to open your workspace." },
+        { status: 401, headers },
+      );
     if (
       input.data.revision === workspace.revision &&
       workspace.document.articles.length > 0 &&

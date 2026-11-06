@@ -1,195 +1,117 @@
+// Public HTTP acceptance for the mandatory Buffer sign-in boundary.
+// Authenticated import/delivery acceptance lives in verify-automation.ts and QA.md.
 import assert from "node:assert/strict";
-import { generatedNotes, isGrounded, sampleArticle } from "../src/lib/content";
+import { sampleArticle } from "../src/lib/content";
 
-const origin = process.env.QA_ORIGIN || "http://127.0.0.1:3100";
+const origin = process.env.QA_ORIGIN || "http://127.0.0.1:3101";
 const headers = { Origin: origin, "Content-Type": "application/json" };
-const empty = { version: 1, activeId: "", articles: [] };
 const document = {
   version: 1,
   activeId: sampleArticle.id,
   articles: [sampleArticle],
 };
-
-const status = await fetch(`${origin}/api/workspace`);
-assert.equal(status.status, 200);
-assert.equal((await status.json()).storage, "cloud");
-const denied = await fetch(`${origin}/api/workspace`, {
-  method: "PUT",
-  headers: {
-    "Content-Type": "application/json",
-    Origin: "https://example.org",
-  },
-  body: JSON.stringify({ revision: 0, document }),
-});
-assert.equal(denied.status, 403);
-const importDenied = await fetch(`${origin}/api/import`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Origin: "https://example.org",
-  },
-  body: JSON.stringify({ url: "https://writer.substack.com/p/test" }),
-});
-assert.equal(importDenied.status, 403);
-const unsafeImport = await fetch(`${origin}/api/import`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({ url: "http://127.0.0.1/private" }),
-});
-assert.equal(unsafeImport.status, 400);
-for (const path of [
-  "/api/feed",
-  "/api/posts/import",
-  "/api/session/sign-out",
-]) {
-  const response = await fetch(`${origin}${path}`, {
+const requests = [
+  { path: "/api/workspace", method: "PUT", body: { revision: 0, document } },
+  {
+    path: "/api/feed",
     method: "POST",
-    headers: {
-      Origin: "https://example.org",
-      "Content-Type": "application/json",
-    },
-    body: "{}",
-  });
-  assert.equal(response.status, 403);
-}
-
-const save = await fetch(`${origin}/api/workspace`, {
-  method: "PUT",
-  headers,
-  body: JSON.stringify({ revision: 0, document }),
-});
-assert.equal(save.status, 200);
-const revision = (await save.json()).revision;
-const cookie = save.headers.get("set-cookie")?.split(";")[0];
-assert.ok(cookie, "Server should issue a private workspace cookie");
-const read = await fetch(`${origin}/api/workspace`, {
-  headers: { Cookie: cookie },
-});
-assert.equal(
-  (await read.json()).document.articles[0].title,
-  sampleArticle.title,
-);
-const isolated = await fetch(`${origin}/api/workspace`);
-assert.equal(
-  (await isolated.json()).document,
-  null,
-  "A different browser must not see the workspace",
-);
-const conflict = await fetch(`${origin}/api/workspace`, {
-  method: "PUT",
-  headers: { ...headers, Cookie: cookie },
-  body: JSON.stringify({ revision: 0, document: empty }),
-});
-assert.equal(conflict.status, 409);
-const malformed = await fetch(`${origin}/api/workspace`, {
-  method: "PUT",
-  headers,
-  body: '{"document":{}}',
-});
-assert.equal(malformed.status, 400);
-const cleared = await fetch(`${origin}/api/workspace`, {
-  method: "PUT",
-  headers: { ...headers, Cookie: cookie },
-  body: JSON.stringify({ revision, document: empty }),
-});
-assert.equal(cleared.status, 200);
-const autoHeaders = { ...headers, Cookie: cookie };
-const defaults = await fetch(`${origin}/api/automation`, {
-  headers: { Cookie: cookie },
-});
-assert.equal((await defaults.json()).enabled, false);
-const off = await fetch(`${origin}/api/automation`, {
-  method: "PUT",
-  headers: autoHeaders,
-  body: JSON.stringify({ enabled: false, version: 0 }),
-});
-assert.equal(off.status, 200);
-assert.equal((await off.json()).enabled, false);
-const stalePolicy = await fetch(`${origin}/api/automation`, {
-  method: "PUT",
-  headers: autoHeaders,
-  body: JSON.stringify({ enabled: false, version: 0 }),
-});
-assert.equal(stalePolicy.status, 409);
-const unconfirmed = await fetch(`${origin}/api/automation`, {
-  method: "PUT",
-  headers: autoHeaders,
-  body: JSON.stringify({
-    enabled: true,
-    version: 1,
-    channelId: "qa-not-a-real-channel",
-    notesPerPost: 1,
-    confirmed: false,
-    policyVersion: 1,
-  }),
-});
-assert.equal(unconfirmed.status, 400);
-if (process.argv.includes("--feed")) {
-  const connected = await fetch(`${origin}/api/feed`, {
-    method: "POST",
-    headers: autoHeaders,
-    body: JSON.stringify({
+    body: {
       url: "https://cuevaio.substack.com",
-      automationVersion: 1,
+      automationVersion: 0,
       publishNow: false,
-    }),
-  });
-  assert.equal(connected.status, 200);
-  assert.ok((await connected.json()).posts.length > 0);
-  const feed = await fetch(`${origin}/api/feed`, {
-    headers: { Cookie: cookie },
+    },
+  },
+  {
+    path: "/api/posts/import",
+    method: "POST",
+    body: {
+      url: "https://cuevaio.substack.com/p/actually-building-with-ai",
+      automationVersion: 0,
+      publishNow: false,
+    },
+  },
+  {
+    path: "/api/onboarding",
+    method: "POST",
+    body: { url: "https://cuevaio.substack.com" },
+  },
+  {
+    path: "/api/import",
+    method: "POST",
+    body: { url: "https://cuevaio.substack.com/p/actually-building-with-ai" },
+  },
+  {
+    path: "/api/generate",
+    method: "POST",
+    body: { title: sampleArticle.title, content: sampleArticle.content },
+  },
+  {
+    path: "/api/automation",
+    method: "PUT",
+    body: { enabled: false, version: 0 },
+  },
+];
+assert.equal(
+  (await (await fetch(`${origin}/api/workspace`)).json()).document,
+  null,
+);
+for (const { path, method, body } of requests) {
+  const denied: Response = await fetch(`${origin}${path}`, {
+    method,
+    headers,
+    body: JSON.stringify(body),
   });
   assert.equal(
-    (await feed.json()).publication.url,
-    "https://cuevaio.substack.com",
+    denied.status,
+    401,
+    `${path} requires an authenticated Buffer account`,
   );
-  assert.equal(
-    (
-      await fetch(`${origin}/api/feed`, {
-        method: "DELETE",
-        headers: autoHeaders,
-      })
-    ).status,
-    200,
-  );
-  console.log(
-    "PASS: real RSS feed listing, persistent connection and disconnection in an isolated QA workspace.",
-  );
+  const foreign = await fetch(`${origin}${path}`, {
+    method,
+    headers: { ...headers, Origin: "https://example.org" },
+    body: JSON.stringify(body),
+  });
+  assert.equal(foreign.status, 403, `${path} rejects foreign origins`);
 }
-const signedOut = await fetch(`${origin}/api/session/sign-out`, {
+// Starting OAuth creates a temporary guest session, not an authenticated account.
+const connect = await fetch(`${origin}/api/buffer/connect`, {
   method: "POST",
-  headers: autoHeaders,
+  headers,
 });
-assert.equal(signedOut.status, 200);
-const revoked = await fetch(`${origin}/api/workspace`, {
+assert.equal(connect.status, 200);
+const cookie = connect.headers.get("set-cookie")?.split(";")[0];
+assert.ok(cookie);
+const auth = new URL((await connect.json()).url);
+assert.equal(auth.origin, "https://auth.buffer.com");
+assert.equal(
+  auth.searchParams.get("redirect_uri"),
+  "https://substuff.vercel.app/api/buffer/callback",
+);
+const guestRead = await fetch(`${origin}/api/workspace`, {
   headers: { Cookie: cookie },
 });
+assert.equal((await guestRead.json()).document, null);
+for (const { path, method, body } of requests) {
+  const denied: Response = await fetch(`${origin}${path}`, {
+    method,
+    headers: { ...headers, Cookie: cookie },
+    body: JSON.stringify(body),
+  });
+  assert.equal(
+    denied.status,
+    401,
+    `${path} must reject a pre-OAuth guest cookie`,
+  );
+}
 assert.equal(
-  (await revoked.json()).document,
-  null,
-  "A revoked browser cookie must not reopen its workspace",
+  (
+    await fetch(`${origin}/api/session/sign-out`, {
+      method: "POST",
+      headers: { ...headers, Cookie: cookie },
+    })
+  ).status,
+  200,
 );
 console.log(
-  "PASS: persistence, cookie isolation/revocation, origin protection, unsafe URL rejection, revision conflict, opt-in consent/version guards, input rejection and workspace clearing.",
+  "PASS: required Buffer sign-in, no guest workspace/demo/generation bypass, OAuth guest isolation, valid OAuth destination, origin protection and sign-out. No model or publishing request was made.",
 );
-
-if (process.argv.includes("--ai")) {
-  const result = await fetch(`${origin}/api/generate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      title: sampleArticle.title,
-      content: sampleArticle.content,
-    }),
-  });
-  assert.equal(result.status, 200, "Live Gateway generation should succeed");
-  const output = generatedNotes.parse(await result.json());
-  assert.ok(
-    output.notes.every((note) =>
-      isGrounded(note.source, sampleArticle.content),
-    ),
-  );
-  console.log(
-    `PASS: Live AI SDK → Vercel AI Gateway structured generation; ${output.notes.length} source-linked Notes.`,
-  );
-}

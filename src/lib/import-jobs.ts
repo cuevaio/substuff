@@ -7,15 +7,17 @@ import { accessToken, substackChannels } from "./buffer";
 import { type Article, workspaceSchema } from "./content";
 import { safeDiagnostic } from "./generate";
 import { claimBucket } from "./generation-limit";
+import type { OnboardingStep } from "./onboarding";
 import { sendNote } from "./send-note";
 import { digest } from "./session";
 import { ImportError, importSubstackPost } from "./substack";
 import { parseSubstackUrl } from "./substack-url";
-import { writeNotes } from "./writer";
+import { analyzeWriting, writeNotes } from "./writer";
 
 const services = {
   readPost: importSubstackPost,
   generate: writeNotes,
+  analyze: analyzeWriting,
   channels: substackChannels,
   token: accessToken,
   send: sendNote,
@@ -144,6 +146,10 @@ export async function runImportJob(
   id: string,
   dependencies: ImportServices = services,
   explicitRetry = false,
+  options: {
+    draftOnly?: boolean;
+    onProgress?: (step: OnboardingStep) => void;
+  } = {},
 ) {
   const [job] = await db()
     .select()
@@ -219,16 +225,30 @@ export async function runImportJob(
           "Today’s writing limit has been reached. Try again tomorrow.",
           429,
         );
+      options.onProgress?.("content");
       const source = await dependencies.readPost(job.sourceUrl);
+      options.onProgress?.("understanding");
+      // The complete post is now available; analysis is based on its actual text.
+      let voice: Awaited<ReturnType<typeof analyzeWriting>> | undefined;
+      if (options.onProgress) {
+        voice = await dependencies.analyze({
+          title: source.title,
+          content: source.content,
+        });
+        options.onProgress("style");
+      }
+      options.onProgress?.("writing");
       const drafts = await dependencies.generate({
         title: source.title,
         content: source.content,
+        voice,
       });
       const [policy] = await db()
         .select()
         .from(automation)
         .where(eq(automation.workspaceId, job.workspaceId));
-      const automatic = mayAutoPublish(policy, job.autoVersion);
+      const automatic =
+        !options.draftOnly && mayAutoPublish(policy, job.autoVersion);
       article = {
         id: `post-${digest(job.sourceUrl).slice(0, 24)}`,
         ...source,
@@ -271,7 +291,11 @@ export async function runImportJob(
       .select()
       .from(automation)
       .where(eq(automation.workspaceId, job.workspaceId));
-    if (mayAutoPublish(policy, job.autoVersion) && candidates.length) {
+    if (
+      !options.draftOnly &&
+      mayAutoPublish(policy, job.autoVersion) &&
+      candidates.length
+    ) {
       const { channels } = await dependencies.channels(job.workspaceId);
       const channel = channels.find(
         (channel) => channel.id === policy.channelId,
