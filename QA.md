@@ -5,6 +5,7 @@
 - Moved Approve/Edit to the byline, directly before the three-dot menu. Removed the entire per-Note footer action row and its padding. Posted Notes retain only their menu.
 - Removed all external-link arrow renderings from Note cards, original-post header and Buffer links. Former icon-only links now have visible Substack/Open Buffer labels; new-tab behavior is unchanged.
 - 70 tests, Biome, typecheck and optimized build passed. New server-rendered component regressions verify action/menu adjacency for both editable and approved Notes, no footer actions, arrow-free article links with `_blank`, and posted read-only behavior.
+- Production `1551855` / `dpl_2DToELUCpMkV27T6md6j29L7rmYg` READY; CI `42265044639` passed. Actual authenticated article DOM confirmed actions immediately beside the menu, no bottom action row, zero link-arrow SVGs, and no action for the posted Note. Header action groups measured36px high (posted menu only32px); no horizontal overflow. Complete workspace fingerprint unchanged; Auto-approve still off. New screenshot capture was blocked by desktop tab visibility; no fresh pixel/mobile acceptance is claimed.
 
 ## Auto-approve replaces automatic publication
 
