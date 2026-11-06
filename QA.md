@@ -9,6 +9,7 @@
 - Source highlighted the exact saved passage in the original pane, with no hidden quote component. Unit coverage verifies cross-inline-markup and paragraph/whitespace ranges. The deliberately nonexistent fixture source exercised the saved-original fallback.
 - Screenshot capture remained blocked by “Screenshot needs a visible tab” despite focus. Animation-frame sampling timed out with the hidden desktop window. No new screenshot/pixel, mobile or measured animation acceptance is claimed. Queued-cancellation logic has server/unit coverage; this pass did not cancel a real remote copy or publish any Note.
 - Disposable fixture used a short-lived context-encrypted access-token copy only for read-only channel discovery. Synthetic receipts had no remote post IDs; no publishing/automation was enabled. The fixture root is deleted after checks.
+- Production code `48c2f2d`, deployment `dpl_nyH5FYczck2R18bTf37sgaeSs5oc`, reached READY on canonical `https://substuff.vercel.app`; CI `42258200348` passed. Production HTTP auth/origin/guest-isolation smoke passed without model or publishing calls. Canonical four-article document fingerprint stayed `787ed54ca79b74e2105667411fb732ba45d5f057997ad2c617252508aa982fcc`; database independently confirmed automation off. The browser’s prior production session was unavailable; Continue with Buffer reached its login form, not a restored account. Authenticated production visual/state acceptance therefore remains open; no login bypass was used.
 
 ## Passed locally
 
