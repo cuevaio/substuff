@@ -200,7 +200,6 @@
     font-size: 10px;
   }
   .note-byline .note-more {
-    margin-left: auto;
     flex-shrink: 0;
     color: var(--quiet);
   }
@@ -239,10 +238,12 @@
     object-fit: contain;
     flex-shrink: 0;
   }
-  .note-actions {
+  .note-header-actions {
     display: flex;
     align-items: center;
-    padding-top: 7px;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
   }
   .note-workflow .feed-note .note-primary-action {
     display: inline-flex;

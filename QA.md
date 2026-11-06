@@ -1,5 +1,11 @@
 # Verification — November 6, 2026
 
+## Compact header actions and arrow-free links
+
+- Moved Approve/Edit to the byline, directly before the three-dot menu. Removed the entire per-Note footer action row and its padding. Posted Notes retain only their menu.
+- Removed all external-link arrow renderings from Note cards, original-post header and Buffer links. Former icon-only links now have visible Substack/Open Buffer labels; new-tab behavior is unchanged.
+- 70 tests, Biome, typecheck and optimized build passed. New server-rendered component regressions verify action/menu adjacency for both editable and approved Notes, no footer actions, arrow-free article links with `_blank`, and posted read-only behavior.
+
 ## Auto-approve replaces automatic publication
 
 - Removed Buffer token/channel/send dependencies and the entire automatic-send loop from import jobs. New generation only saves Notes. Auto-approve defaults off; when enabled it approves every generated Note, with no old 1–3 count limit, channel choice or public-publication consent. Initial onboarding remains unapproved by default; existing accounts’ explicit auto-approval preference applies to newly generated onboarding Notes too.

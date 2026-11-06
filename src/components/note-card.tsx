@@ -4,7 +4,6 @@ import Image from "next/image";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import {
-  ArrowUpRight,
   ArticleLink,
   Check,
   Copy,
@@ -108,121 +107,8 @@ export function NoteCard({
             {state === "posted" ? "Posted" : "Approved"}
           </span>
         )}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button
-              type="button"
-              className="icon-button note-more"
-              aria-label="More Note options"
-            >
-              <More size={19} />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className="note-menu"
-              sideOffset={5}
-              align="end"
-            >
-              <DropdownMenu.Item className="note-menu-item" onSelect={onSource}>
-                <FileText size={15} />
-                Show source
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className="note-menu-item"
-                onSelect={() => onCopy(text)}
-              >
-                <Copy size={15} />
-                Copy text
-              </DropdownMenu.Item>
-              {state === "approved" && (
-                <DropdownMenu.Item
-                  className="note-menu-item"
-                  disabled={!ready}
-                  onSelect={onEdit}
-                >
-                  <RotateCcw size={15} />
-                  Unapprove Note
-                </DropdownMenu.Item>
-              )}
-              {state === "to-approve" && (
-                <DropdownMenu.Item
-                  className="note-menu-item"
-                  disabled={note.text === note.original || !ready}
-                  onSelect={onRestore}
-                >
-                  <RotateCcw size={15} />
-                  Restore original
-                </DropdownMenu.Item>
-              )}
-              {article.sourceUrl && state !== "posted" && (
-                <DropdownMenu.CheckboxItem
-                  className="note-menu-item"
-                  disabled={readOnly}
-                  checked={note.includeArticle !== false}
-                  onCheckedChange={(checked) =>
-                    onUpdate({
-                      includeArticle: checked,
-                      approved: false,
-                      richText: undefined,
-                    })
-                  }
-                >
-                  <ArticleLink size={15} />
-                  Include article card
-                  <DropdownMenu.ItemIndicator>
-                    <Check size={13} />
-                  </DropdownMenu.ItemIndicator>
-                </DropdownMenu.CheckboxItem>
-              )}
-              {remote && (
-                <DropdownMenu.Item asChild className="note-menu-item">
-                  <a
-                    href={`https://publish.buffer.com/channels/${encodeURIComponent(remote.channelId)}/schedule`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ArrowUpRight size={15} />
-                    Open in Buffer
-                  </a>
-                </DropdownMenu.Item>
-              )}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-      </header>
-      <div className="note-content">
-        {readOnly ? (
-          <p className="note-readonly">{text}</p>
-        ) : (
-          <NoteEditor
-            note={note}
-            onChange={(changes) => onUpdate({ ...changes, approved: false })}
-          />
-        )}
-        {cardUrl && (
-          <a
-            className="note-article-card"
-            href={cardUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="substack-mark"
-              src="/brand/substack.png"
-              width={38}
-              height={38}
-              alt="Substack"
-            />
-            <span>
-              {article.title}
-              <small>{new URL(cardUrl).hostname}</small>
-            </span>
-            <ArrowUpRight size={14} />
-          </a>
-        )}
-        {state !== "posted" && (
-          <footer className="note-actions">
+        <div className="note-header-actions">
+          {state !== "posted" && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -253,7 +139,121 @@ export function NoteCard({
                 {state === "approved" ? "Edit Note" : "Approve Note"}
               </TooltipContent>
             </Tooltip>
-          </footer>
+          )}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className="icon-button note-more"
+                aria-label="More Note options"
+              >
+                <More size={19} />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                className="note-menu"
+                sideOffset={5}
+                align="end"
+              >
+                <DropdownMenu.Item
+                  className="note-menu-item"
+                  onSelect={onSource}
+                >
+                  <FileText size={15} />
+                  Show source
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  className="note-menu-item"
+                  onSelect={() => onCopy(text)}
+                >
+                  <Copy size={15} />
+                  Copy text
+                </DropdownMenu.Item>
+                {state === "approved" && (
+                  <DropdownMenu.Item
+                    className="note-menu-item"
+                    disabled={!ready}
+                    onSelect={onEdit}
+                  >
+                    <RotateCcw size={15} />
+                    Unapprove Note
+                  </DropdownMenu.Item>
+                )}
+                {state === "to-approve" && (
+                  <DropdownMenu.Item
+                    className="note-menu-item"
+                    disabled={note.text === note.original || !ready}
+                    onSelect={onRestore}
+                  >
+                    <RotateCcw size={15} />
+                    Restore original
+                  </DropdownMenu.Item>
+                )}
+                {article.sourceUrl && state !== "posted" && (
+                  <DropdownMenu.CheckboxItem
+                    className="note-menu-item"
+                    disabled={readOnly}
+                    checked={note.includeArticle !== false}
+                    onCheckedChange={(checked) =>
+                      onUpdate({
+                        includeArticle: checked,
+                        approved: false,
+                        richText: undefined,
+                      })
+                    }
+                  >
+                    <ArticleLink size={15} />
+                    Include article card
+                    <DropdownMenu.ItemIndicator>
+                      <Check size={13} />
+                    </DropdownMenu.ItemIndicator>
+                  </DropdownMenu.CheckboxItem>
+                )}
+                {remote && (
+                  <DropdownMenu.Item asChild className="note-menu-item">
+                    <a
+                      href={`https://publish.buffer.com/channels/${encodeURIComponent(remote.channelId)}/schedule`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open in Buffer
+                    </a>
+                  </DropdownMenu.Item>
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        </div>
+      </header>
+      <div className="note-content">
+        {readOnly ? (
+          <p className="note-readonly">{text}</p>
+        ) : (
+          <NoteEditor
+            note={note}
+            onChange={(changes) => onUpdate({ ...changes, approved: false })}
+          />
+        )}
+        {cardUrl && (
+          <a
+            className="note-article-card"
+            href={cardUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="substack-mark"
+              src="/brand/substack.png"
+              width={38}
+              height={38}
+              alt="Substack"
+            />
+            <span>
+              {article.title}
+              <small>{new URL(cardUrl).hostname}</small>
+            </span>
+          </a>
         )}
       </div>
     </article>

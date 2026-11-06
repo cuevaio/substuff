@@ -3,12 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { DateTimePicker, localDateTime } from "@/components/date-time-picker";
-import {
-  ArrowUpRight,
-  Check,
-  ChevronDown,
-  LoaderCircle,
-} from "@/components/icons";
+import { Check, ChevronDown, LoaderCircle } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -299,7 +294,7 @@ export function BufferPanel({
             target="_blank"
             rel="noreferrer"
           >
-            Connect Substack in Buffer <ArrowUpRight size={13} />
+            Connect Substack in Buffer
           </a>
           <button
             type="button"
@@ -319,7 +314,7 @@ export function BufferPanel({
             target="_blank"
             rel="noreferrer"
           >
-            View in Buffer <ArrowUpRight size={13} />
+            View in Buffer
           </a>
         </div>
       ) : recorded ? (
@@ -349,7 +344,7 @@ export function BufferPanel({
               target="_blank"
               rel="noreferrer"
             >
-              View in Buffer <ArrowUpRight size={13} />
+              View in Buffer
             </a>
           </div>
         </>
@@ -364,7 +359,7 @@ export function BufferPanel({
                 rel="noreferrer"
                 aria-label="Open Buffer"
               >
-                <ArrowUpRight size={15} />
+                Open Buffer
               </a>
             </div>
           ) : (

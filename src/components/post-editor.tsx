@@ -4,11 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { BufferPanel, connectionQuery } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
-import {
-  ArrowUpRight,
-  PanelRightClose,
-  PanelRightOpen,
-} from "@/components/icons";
+import { PanelRightClose, PanelRightOpen } from "@/components/icons";
 import { NoteCard } from "@/components/note-card";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -66,10 +62,10 @@ function SourcePane({
             href={article.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="icon-button"
+            className="text-button"
             aria-label="Read on Substack"
           >
-            <ArrowUpRight size={16} />
+            Substack
           </a>
         )}
       </header>
