@@ -11,7 +11,9 @@ export default function Privacy() {
         We store your articles, Note drafts, approvals, Buffer connection, and
         publishing receipts in Neon. A private browser cookie opens your
         workspace. Connecting Buffer lets you recover the same workspace from
-        another browser by signing into the same Buffer account.
+        another browser by signing into the same Buffer account. Connected
+        publication feeds are checked daily. We import publicly available posts
+        only; we do not bypass paywalls.
       </p>
       <h2>AI writing</h2>
       <p>
@@ -19,24 +21,34 @@ export default function Privacy() {
         Gateway to Google Gemini, with OpenAI as a fallback. Don’t upload
         writing you don’t have permission to process. Buffer credentials are
         never sent to a writing model. Provider processing is subject to their
-        service policies; substuff does not train a model on your writing.
+        service policies; substuff does not train a model on your writing. A
+        connected feed can request drafts for newly discovered posts while you
+        are away. Daily limits and the writing-provider budget apply.
       </p>
       <h2>Buffer</h2>
       <p>
         We request account-read and post-read/write access. Tokens are encrypted
-        at rest. Nothing is published without your explicit approval. Disconnect
-        in Preferences to remove substuff’s stored credentials; you can also
-        revoke access in Buffer’s account settings. Removing the connection does
-        not cancel posts already scheduled in Buffer.
+        at rest. By default, every Note needs your approval. If you explicitly
+        enable Auto-publish in Settings, the selected number of AI-written Notes
+        can publish immediately to your chosen channel without individual
+        review. Existing imported posts are not automatically included. Turning
+        the mode off stops future sends; an in-flight send may finish.
+        Unconfirmed publishing requests are never resent automatically.
+        Disconnect in Settings to remove substuff’s stored credentials; you can
+        also revoke access in Buffer’s account settings. Removing the connection
+        does not cancel posts already scheduled in Buffer.
       </p>
       <h2>Retention and deletion</h2>
       <p>
         Guest workspace access lasts 30 days. Inactive workspaces expire and are
-        removed by daily cleanup. Clear workspace in Preferences to remove the
+        removed by daily cleanup. Clear workspace in Settings to remove the
         stored article document and local backup. This does not delete a post
         already sent to Buffer. Publishing receipts are retained with the
         workspace for duplicate prevention and delivery status. Local browser
-        backups remain until you clear them or clear browser storage.
+        backups remain until you clear them or clear browser storage. Clearing
+        also removes resumable article copies from import jobs. Feed and
+        publishing preferences stay unchanged. Signing out closes access on this
+        browser; it does not disable feed checks or Auto-publish.
       </p>
       <h2>Security and hosting</h2>
       <p>

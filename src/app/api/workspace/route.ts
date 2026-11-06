@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { workspaces } from "@/db/schema";
+import { importJobs, workspaces } from "@/db/schema";
 import { workspaceSchema } from "@/lib/content";
 import { claimQuota } from "@/lib/generation-limit";
 import { createSession, readSession, sameOrigin } from "@/lib/session";
@@ -80,6 +80,23 @@ export async function PUT(request: Request) {
           { status: 429 },
         );
       workspace = await createSession();
+    }
+    if (
+      input.data.revision === workspace.revision &&
+      workspace.document.articles.length > 0 &&
+      input.data.document.articles.length === 0
+    ) {
+      // Clearing writing also removes resumable copies and stops unsent import jobs.
+      // Delivery receipts remain so a previously sent version is never duplicated.
+      await db()
+        .update(importJobs)
+        .set({
+          state: "removed",
+          article: null,
+          autoVersion: null,
+          error: null,
+        })
+        .where(eq(importJobs.workspaceId, workspace.id));
     }
     const [saved] = await db()
       .update(workspaces)

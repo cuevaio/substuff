@@ -14,22 +14,37 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Brand, Mark } from "@/components/brand";
-import { BufferPanel, BufferPreferences } from "@/components/buffer-panel";
+import {
+  BufferPanel,
+  BufferPreferences,
+  connectBuffer,
+} from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
+import { FeedPicker } from "@/components/feed-picker";
 import { ImportForm } from "@/components/import-form";
+import {
+  AutoPublishSettings,
+  PublicationSettings,
+  SignOutButton,
+} from "@/components/publication-settings";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  type AutoSettings,
+  autoQuery,
+  type ImportIntent,
+} from "@/lib/client-settings";
 import {
   type Article,
   exportNotes,
-  generatedNotes,
   type Note,
   sampleArticle,
   workspaceSchema,
 } from "@/lib/content";
-import { parseSubstackUrl } from "@/lib/substack-url";
+import type { FeedPost } from "@/lib/feed";
+import { parsePublicationUrl, parseSubstackUrl } from "@/lib/substack-url";
 
 const STORAGE = "substuff.workspace.v1";
-type Modal = "article" | "review" | "settings" | null;
+type Modal = "article" | "review" | "settings" | "feed" | null;
 type SaveState = "saved" | "saving" | "unavailable";
 
 function AutoTextarea({
@@ -84,7 +99,10 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState("");
   const [sourceId, setSourceId] = useState<string | null>(null);
-  const importAbort = useRef<AbortController | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [feed, setFeed] = useState<{ title: string; posts: FeedPost[] } | null>(
+    null,
+  );
   const [confirmClear, setConfirmClear] = useState(false);
   const [restoreNote, setRestoreNote] = useState<Note | null>(null);
   const [cloud, setCloud] = useState(false);
@@ -135,6 +153,8 @@ export default function Home() {
           if (bufferResult) {
             const messages: Record<string, string> = {
               connected: "Buffer connected. Your Notes are ready to review.",
+              connected_feed:
+                "Workspace restored. Reconnect your publication in Settings to confirm its publishing preference.",
               cancelled: "Connection cancelled. Your drafts are safe.",
               expired: "That connection attempt expired. Please try again.",
               account:
@@ -146,7 +166,12 @@ export default function Home() {
                 "Buffer connection failed. Your drafts are safe; please try again.",
             };
             setToast(messages[bufferResult] || messages.error);
-            if (bufferResult === "connected" && restored?.articles.length)
+            if (
+              bufferResult === "connected" &&
+              restored?.articles
+                .find((article) => article.id === restored.activeId)
+                ?.notes.some((note) => note.approved)
+            )
               setModal("review");
             window.history.replaceState({}, "", "/");
           }
@@ -303,7 +328,45 @@ export default function Home() {
     );
   }
 
-  async function importArticle(url: string) {
+  async function importArticle(url: string, intent?: ImportIntent) {
+    let publication: ReturnType<typeof parsePublicationUrl> | null = null;
+    try {
+      publication = parsePublicationUrl(url);
+    } catch {
+      /* Try a post link below. */
+    }
+    const selectedIntent = intent ?? {
+      version:
+        queryClient.getQueryData<AutoSettings>(autoQuery.queryKey)?.version ??
+        0,
+      publishNow:
+        queryClient.getQueryData<AutoSettings>(autoQuery.queryKey)?.enabled ??
+        false,
+    };
+    if (publication) {
+      setImportBusy(true);
+      try {
+        await flushWorkspace();
+        const response = await fetch("/api/feed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: publication.url,
+            automationVersion: selectedIntent.version,
+            publishNow: selectedIntent.publishNow,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "Couldn’t connect this feed.");
+        setFeed(data);
+        setModal("feed");
+        await queryClient.invalidateQueries({ queryKey: ["feed"] });
+      } finally {
+        setImportBusy(false);
+      }
+      return;
+    }
     const source = parseSubstackUrl(url);
     const existing = articles.find((a) => a.sourceUrl === source.url);
     if (existing) {
@@ -312,63 +375,33 @@ export default function Home() {
       setToast("Already imported");
       return;
     }
-    const controller = new AbortController();
-    importAbort.current = controller;
+    setImportBusy(true);
     try {
-      const input = await queryClient.fetchQuery({
-        queryKey: ["imported-post", source.url],
-        staleTime: 300000,
-        queryFn: async () => {
-          const imported = await fetch("/api/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: source.url }),
-            signal: AbortSignal.any([
-              controller.signal,
-              AbortSignal.timeout(20000),
-            ]),
-          });
-          const data = await imported.json();
-          if (!imported.ok)
-            throw new Error(data.error || "Couldn’t import that post.");
-          return data as { title: string; content: string; sourceUrl: string };
-        },
-      });
-      controller.signal.throwIfAborted();
-      const response = await fetch("/api/generate", {
+      await flushWorkspace();
+      const response = await fetch("/api/posts/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: input.title, content: input.content }),
-        signal: AbortSignal.any([
-          controller.signal,
-          AbortSignal.timeout(60000),
-        ]),
+        body: JSON.stringify({
+          url: source.url,
+          automationVersion: selectedIntent.version,
+          publishNow: selectedIntent.publishNow,
+        }),
+        signal: AbortSignal.timeout(170000),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(
           data.error || "We couldn’t create Notes. Please try again.",
         );
-      const notes: Note[] = generatedNotes
-        .parse(data)
-        .notes.map((n, index) => ({
-          ...n,
-          id: `note-${index}`,
-          original: n.text,
-          approved: false,
-        }));
-      controller.signal.throwIfAborted();
-      addArticle({
-        id: crypto.randomUUID(),
-        title: input.title,
-        content: input.content,
-        sourceUrl: input.sourceUrl,
-        notes,
-        createdAt: new Date().toISOString(),
-        mode: "ai",
-      });
+      const document = workspaceSchema.parse(data.document);
+      revision.current = data.revision;
+      setArticles(document.articles);
+      selectArticle(data.article.id);
+      setModal(null);
+      if (data.warning) setToast(data.warning);
+      await queryClient.invalidateQueries({ queryKey: ["feed"] });
     } finally {
-      if (importAbort.current === controller) importAbort.current = null;
+      setImportBusy(false);
     }
   }
 
@@ -430,6 +463,17 @@ export default function Home() {
                 onClick={loadSample}
               >
                 Try an example <ArrowRight size={14} />
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  void connectBuffer(flushWorkspace).catch((cause) =>
+                    setToast(cause.message),
+                  );
+                }}
+              >
+                Sign in with Buffer
               </button>
             </div>
           </main>
@@ -692,16 +736,30 @@ export default function Home() {
 
       {modal === "article" && (
         <Dialog
-          title="Import a post"
+          title="Import from Substack"
           onClose={() => {
-            importAbort.current?.abort();
-            setModal(null);
+            if (!importBusy) setModal(null);
           }}
         >
-          <p className="dialog-description">
-            Add a published Substack post link.
-          </p>
+          <p className="dialog-description">Add a post or publication link.</p>
           <ImportForm onImport={importArticle} />
+        </Dialog>
+      )}
+
+      {modal === "feed" && feed && (
+        <Dialog
+          title={feed.title}
+          onClose={() => {
+            if (!importBusy) setModal(null);
+          }}
+        >
+          <FeedPicker
+            posts={feed.posts}
+            imported={articles
+              .map((article) => article.sourceUrl)
+              .filter((url): url is string => Boolean(url))}
+            onImport={importArticle}
+          />
         </Dialog>
       )}
 
@@ -724,9 +782,15 @@ export default function Home() {
           }}
         >
           <BufferPreferences beforeConnect={flushWorkspace} />
+          <PublicationSettings
+            beforeChange={flushWorkspace}
+            onConnect={openArticle}
+          />
+          <AutoPublishSettings beforeChange={flushWorkspace} />
           <a href="/privacy" className="text-button">
             Privacy
           </a>
+          <SignOutButton beforeSignOut={flushWorkspace} />
           <div className="dialog-actions">
             <button
               className="text-button"
@@ -747,7 +811,7 @@ export default function Home() {
             <div className="clear-confirm">
               <p>
                 Delete all imported posts and edits? Scheduled Notes stay in
-                Buffer.
+                Buffer. Feed and auto-publish preferences won’t change.
               </p>
               <button
                 className="button secondary"

@@ -37,6 +37,21 @@ const unsafeImport = await fetch(`${origin}/api/import`, {
   body: JSON.stringify({ url: "http://127.0.0.1/private" }),
 });
 assert.equal(unsafeImport.status, 400);
+for (const path of [
+  "/api/feed",
+  "/api/posts/import",
+  "/api/session/sign-out",
+]) {
+  const response = await fetch(`${origin}${path}`, {
+    method: "POST",
+    headers: {
+      Origin: "https://example.org",
+      "Content-Type": "application/json",
+    },
+    body: "{}",
+  });
+  assert.equal(response.status, 403);
+}
 
 const save = await fetch(`${origin}/api/workspace`, {
   method: "PUT",
@@ -78,8 +93,84 @@ const cleared = await fetch(`${origin}/api/workspace`, {
   body: JSON.stringify({ revision, document: empty }),
 });
 assert.equal(cleared.status, 200);
+const autoHeaders = { ...headers, Cookie: cookie };
+const defaults = await fetch(`${origin}/api/automation`, {
+  headers: { Cookie: cookie },
+});
+assert.equal((await defaults.json()).enabled, false);
+const off = await fetch(`${origin}/api/automation`, {
+  method: "PUT",
+  headers: autoHeaders,
+  body: JSON.stringify({ enabled: false, version: 0 }),
+});
+assert.equal(off.status, 200);
+assert.equal((await off.json()).enabled, false);
+const stalePolicy = await fetch(`${origin}/api/automation`, {
+  method: "PUT",
+  headers: autoHeaders,
+  body: JSON.stringify({ enabled: false, version: 0 }),
+});
+assert.equal(stalePolicy.status, 409);
+const unconfirmed = await fetch(`${origin}/api/automation`, {
+  method: "PUT",
+  headers: autoHeaders,
+  body: JSON.stringify({
+    enabled: true,
+    version: 1,
+    channelId: "qa-not-a-real-channel",
+    notesPerPost: 1,
+    confirmed: false,
+    policyVersion: 1,
+  }),
+});
+assert.equal(unconfirmed.status, 400);
+if (process.argv.includes("--feed")) {
+  const connected = await fetch(`${origin}/api/feed`, {
+    method: "POST",
+    headers: autoHeaders,
+    body: JSON.stringify({
+      url: "https://cuevaio.substack.com",
+      automationVersion: 1,
+      publishNow: false,
+    }),
+  });
+  assert.equal(connected.status, 200);
+  assert.ok((await connected.json()).posts.length > 0);
+  const feed = await fetch(`${origin}/api/feed`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(
+    (await feed.json()).publication.url,
+    "https://cuevaio.substack.com",
+  );
+  assert.equal(
+    (
+      await fetch(`${origin}/api/feed`, {
+        method: "DELETE",
+        headers: autoHeaders,
+      })
+    ).status,
+    200,
+  );
+  console.log(
+    "PASS: real RSS feed listing, persistent connection and disconnection in an isolated QA workspace.",
+  );
+}
+const signedOut = await fetch(`${origin}/api/session/sign-out`, {
+  method: "POST",
+  headers: autoHeaders,
+});
+assert.equal(signedOut.status, 200);
+const revoked = await fetch(`${origin}/api/workspace`, {
+  headers: { Cookie: cookie },
+});
+assert.equal(
+  (await revoked.json()).document,
+  null,
+  "A revoked browser cookie must not reopen its workspace",
+);
 console.log(
-  "PASS: Neon persistence, cookie isolation, origin protection, import URL rejection, revision conflict, input rejection, workspace clearing.",
+  "PASS: persistence, cookie isolation/revocation, origin protection, unsafe URL rejection, revision conflict, opt-in consent/version guards, input rejection and workspace clearing.",
 );
 
 if (process.argv.includes("--ai")) {

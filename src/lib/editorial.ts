@@ -23,7 +23,8 @@ Bad Note: "The author discovered that batching email boosts productivity. This i
 
 GROUNDING
 - Never invent an anecdote, fact, quote, number, feeling, causal result, or opinion.
-- For every Note, source must be an EXACT contiguous supporting passage copied from the input article. Do not fix its spelling or replace punctuation.
+- The input contains numbered source passages. Every Note must be supported entirely by one passage. Return its sourceId; the server attaches the exact original source text. Never invent a sourceId or combine unsupported claims from other passages.
+- Put the strongest standalone Note first.
 - Re-read the finished set: remove repetition, third-person summaries, and claims stronger than the source. Return only the required structured output.`;
 
 export function isSummaryVoice(text: string, source: string) {

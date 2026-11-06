@@ -7,6 +7,9 @@ import {
   sessions,
   workspaces,
 } from "@/db/schema";
+import { runFeedTick } from "@/lib/feed-sync";
+
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   if (
@@ -22,5 +25,6 @@ export async function GET(request: Request) {
   await db()
     .delete(generationLimits)
     .where(lt(generationLimits.expiresAt, now));
-  return NextResponse.json({ ok: true });
+  const feed = await runFeedTick();
+  return NextResponse.json({ ok: true, feed });
 }

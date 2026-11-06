@@ -1,11 +1,9 @@
-import { createGateway } from "@ai-sdk/gateway";
-import { generateText, Output } from "ai";
 import { NextResponse } from "next/server";
-import { articleInput, generatedNotes } from "@/lib/content";
-import { editorialPrompt } from "@/lib/editorial";
-import { generateWithFallback, safeDiagnostic } from "@/lib/generate";
+import { articleInput } from "@/lib/content";
+import { safeDiagnostic } from "@/lib/generate";
 import { claimGeneration } from "@/lib/generation-limit";
 import { sameOrigin } from "@/lib/session";
+import { writeNotes } from "@/lib/writer";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -71,27 +69,7 @@ export async function POST(request: Request) {
         },
         { status: 429 },
       );
-    const gateway = createGateway({ apiKey: process.env.AI_GATEWAY_API_KEY });
-    const abortSignal = AbortSignal.timeout(50000);
-    const output = await generateWithFallback(
-      input.data.content,
-      process.env.AI_MODEL || "google/gemini-2.5-flash-lite",
-      process.env.AI_FALLBACK_MODEL || "openai/gpt-4.1-mini",
-      async (model) => {
-        const result = await generateText({
-          model: gateway(model),
-          maxOutputTokens: 3000,
-          maxRetries: 0,
-          abortSignal,
-          output: Output.object({ schema: generatedNotes }),
-          system: editorialPrompt,
-          prompt: JSON.stringify(input.data),
-        });
-        return result.output;
-      },
-      (cause) =>
-        console.warn("substuff.generation_retry", safeDiagnostic(cause)),
-    );
+    const output = await writeNotes(input.data);
     return NextResponse.json(output, {
       headers: { "Cache-Control": "no-store" },
     });

@@ -3,13 +3,17 @@ import { and, eq, gt } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import {
+  automation,
   bufferAccounts,
   bufferConnections,
+  importJobs,
   oauthAttempts,
+  publications,
   workspaces,
 } from "@/db/schema";
 import { accountInfo, exchangeToken } from "@/lib/buffer";
 import { seal, unseal } from "@/lib/crypto";
+import { mergeRecoveredWorkspace } from "@/lib/recovery";
 import { bindSession, digest, readSession } from "@/lib/session";
 
 function home(status: string) {
@@ -61,26 +65,23 @@ export async function GET(request: Request) {
       .from(bufferAccounts)
       .where(eq(bufferAccounts.accountId, account.id));
     const targetId = existing?.workspaceId ?? workspace.id;
+    let recoveryStatus = "connected";
     if (targetId !== workspace.id) {
       const [target] = await db()
         .select()
         .from(workspaces)
         .where(eq(workspaces.id, targetId));
       if (!target) return home("error");
-      const ids = new Set(
-        target.document.articles.map((article) => article.id),
-      );
-      const merged = [
-        ...target.document.articles,
-        ...workspace.document.articles.filter(
-          (article) => !ids.has(article.id),
-        ),
-      ];
-      if (merged.length > 100) return home("full");
+      let merged: typeof target.document;
+      try {
+        merged = mergeRecoveredWorkspace(target.document, workspace.document);
+      } catch {
+        return home("full");
+      }
       const [saved] = await db()
         .update(workspaces)
         .set({
-          document: { ...target.document, articles: merged },
+          document: merged,
           revision: target.revision + 1,
           expiresAt: new Date(Date.now() + 30 * 86400000),
         })
@@ -92,6 +93,66 @@ export async function GET(request: Request) {
         )
         .returning({ id: workspaces.id });
       if (!saved) return home("conflict");
+      const [guestFeed] = await db()
+        .select()
+        .from(publications)
+        .where(eq(publications.workspaceId, workspace.id));
+      if (guestFeed) {
+        const [targetFeed] = await db()
+          .select()
+          .from(publications)
+          .where(eq(publications.workspaceId, targetId));
+        const [policy] = await db()
+          .select()
+          .from(automation)
+          .where(eq(automation.workspaceId, targetId));
+        // Never attach a new publication to an already-enabled public automation policy silently.
+        if (!targetFeed && !policy?.enabled) {
+          await db()
+            .insert(publications)
+            .values({ ...guestFeed, workspaceId: targetId })
+            .onConflictDoNothing();
+          const baseline = await db()
+            .select({ sourceUrl: importJobs.sourceUrl })
+            .from(importJobs)
+            .where(
+              and(
+                eq(importJobs.workspaceId, workspace.id),
+                eq(importJobs.state, "baseline"),
+              ),
+            );
+          if (baseline.length)
+            await db()
+              .insert(importJobs)
+              .values(
+                baseline.map((item) => ({
+                  id: randomUUID(),
+                  workspaceId: targetId,
+                  sourceUrl: item.sourceUrl,
+                  state: "baseline",
+                  autoVersion: null,
+                })),
+              )
+              .onConflictDoNothing();
+        } else if (targetFeed?.url !== guestFeed.url)
+          recoveryStatus = "connected_feed";
+        await db()
+          .delete(publications)
+          .where(eq(publications.workspaceId, workspace.id));
+        await db()
+          .update(importJobs)
+          .set({
+            state: "failed",
+            error:
+              "Workspace recovered. Re-import this post from your saved workspace.",
+          })
+          .where(
+            and(
+              eq(importJobs.workspaceId, workspace.id),
+              eq(importJobs.state, "queued"),
+            ),
+          );
+      }
     }
     const values = {
       id: randomUUID(),
@@ -125,7 +186,7 @@ export async function GET(request: Request) {
       set: values,
     });
     await bindSession(targetId);
-    return home("connected");
+    return home(recoveryStatus);
   } catch {
     console.warn("substuff.buffer_callback_failed");
     return home("error");

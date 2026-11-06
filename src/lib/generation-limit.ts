@@ -16,6 +16,10 @@ export async function claimQuota(
     : "local";
   const day = new Date().toISOString().slice(0, 10);
   const key = digest(`${process.env.RATE_LIMIT_SALT}:${bucket}:${day}:${ip}`);
+  return claimBucket(key, limit);
+}
+
+export async function claimBucket(key: string, limit: number) {
   const [claim] = await db()
     .insert(generationLimits)
     .values({ key, count: 1, expiresAt: new Date(Date.now() + 2 * 86400000) })

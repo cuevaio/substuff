@@ -16,12 +16,9 @@ export async function readSession() {
   const [alias] = await db()
     .select()
     .from(sessions)
-    .where(
-      and(
-        eq(sessions.tokenHash, digest(token)),
-        gt(sessions.expiresAt, new Date()),
-      ),
-    );
+    .where(eq(sessions.tokenHash, digest(token)));
+  if (alias && (alias.revokedAt || alias.expiresAt.getTime() <= Date.now()))
+    return null;
   const [workspace] = await db()
     .select()
     .from(workspaces)
@@ -31,6 +28,12 @@ export async function readSession() {
         gt(workspaces.expiresAt, new Date()),
       ),
     );
+  if (
+    !alias &&
+    workspace &&
+    workspace.createdAt.getTime() + SESSION_DAYS * 86400000 <= Date.now()
+  )
+    return null;
   return workspace ?? null;
 }
 
@@ -62,6 +65,13 @@ export async function createSession() {
       expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000),
     })
     .returning();
+  await db()
+    .insert(sessions)
+    .values({
+      tokenHash: digest(token),
+      workspaceId: workspace.id,
+      expiresAt: workspace.expiresAt,
+    });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -70,6 +80,26 @@ export async function createSession() {
     maxAge: SESSION_DAYS * 86400,
   });
   return workspace;
+}
+
+export async function signOutSession() {
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  const workspace = await readSession();
+  if (token && workspace)
+    await db()
+      .insert(sessions)
+      .values({
+        tokenHash: digest(token),
+        workspaceId: workspace.id,
+        expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000),
+        revokedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: sessions.tokenHash,
+        set: { revokedAt: new Date() },
+      });
+  jar.delete(COOKIE);
 }
 
 export function sameOrigin(request: Request) {

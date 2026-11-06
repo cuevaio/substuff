@@ -41,6 +41,9 @@ No credentials are necessary for sample/excerpt editing. Actual AI generation re
 - Canonical Buffer-account workspace recovery; reconnecting the same account in another browser restores its workspace.
 - Collapsible shadcn sidebar, Select, Calendar/Popover date picker and minimal sharing/settings dialogs. TanStack Query caches shared server reads; publishing mutations never retry automatically.
 - Safe post import through a fixed Substack API path: HTTPS publication hosts only, no redirects, bounded response size/deadline, no paywall bypass. Re-importing a canonical source opens its existing Notes without overwriting edits.
+- Publication RSS import with a recent-post picker. Initial feed items are baselined, not silently imported/published; new posts are checked daily by the existing authenticated cron. Check now processes one pending import immediately.
+- Opt-in immediate Auto-publish: select the Substack channel, choose up to 1–3 Notes per post, and explicitly consent to public AI-written Notes without individual review. Default is off. Consent is versioned and rechecked before each send. Existing imported posts and previously queued draft-only jobs are not retroactively published.
+- Server-owned durable import jobs, exact original source passages resolved from model-selected passage IDs, safe interrupted-job handling, and protected sign-out/fresh-session workspace recovery.
 
 ## Privacy and boundaries
 
@@ -50,9 +53,9 @@ Articles are sent through AI Gateway to Google Gemini (or OpenAI on fallback) on
 
 Public generation is limited to ten attempts per UTC day per hashed IP, with a separate dedicated key budget. Behind Vercel, only its trusted client-IP header is used; local runs share a local bucket. Missing quota configuration disables generation. Failed model attempts still consume quota. The AI Gateway budget is the final spend boundary, not application-level authentication.
 
-Publishing requires exact server-approved text and a selected Substack channel. Public scheduling also requires explicit consent and valid future times. Samples can create private drafts only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer does not cancel remote posts.
+By default publishing requires exact approved text and a selected Substack channel. Public scheduling also requires a deliberate final action and valid future times. Auto-publish is a separate, explicit opt-in for newly imported AI Notes. Samples can create private drafts only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer or signing out does not cancel remote posts; signing out does not disable automation.
 
-**Not implemented:** custom-domain imports, automatic feed detection, standalone account authentication, billing. Production OAuth, private draft delivery, duplicate prevention, draft cancellation, induced token renewal, reconnect and one explicitly approved public scheduled delivery are verified. Cross-browser recovery and scheduled-post cancellation still require acceptance testing. See [QA.md](QA.md).
+**Limits:** no custom-domain imports, real-time feed webhooks, standalone account provider or billing. The Hobby deployment checks feeds daily at 08:00 UTC, checks up to five publications and processes at most two import jobs per cron invocation. Imports are capped at ten model jobs per workspace/day and fifty globally/day, plus the dedicated $5/month provider-key cap. Failed generation needs a deliberate retry; uncertain sends never retry automatically. See [QA.md](QA.md) for live acceptance evidence and remaining gaps.
 
 ## Checks
 
@@ -61,6 +64,12 @@ bun run check
 bun run typecheck
 bun test
 bun run build
+```
+
+Isolated real-database automation checks with external publishing mocked:
+
+```sh
+SUBSTUFF_QA_DATABASE=true bun scripts/verify-automation.ts
 ```
 
 With the configured production-mode local server running:

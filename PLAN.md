@@ -27,12 +27,14 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] Public first-slice deployment at https://substuff.vercel.app; Git-triggered releases, live storage/model smoke tests and desktop/mobile browser checks.
 - [x] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation. Production private draft, duplicate prevention, draft cancellation, token renewal, reconnect and one approved public scheduled delivery verified.
 - [x] Published Substack post-link import, canonical source links and repeat-import protection that preserves edits.
-- [ ] Automatic feed detection, source versioning and weekly review reminder.
+- [x] Connected-feed discovery and safe daily background import. Initial backlog is opt-in; manual feed checks are available.
+- [x] Explicit opt-in for immediate public AI Notes, versioned consent, channel/count selection, bounded jobs, opt-out checks and duplicate-send ledger.
+- [ ] Source-change versioning, real-time feed ingestion and weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 
 ## First-slice boundaries
 
-Guest-first workspace with optional Buffer OAuth account recovery. No silent public upload, fake AI progress, or simulated publishing. Only published, publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Create Notes explicitly imports the linked article and requests drafts. Privacy details live on the privacy page, not throughout the writing interface. Drizzle/Neon stores drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the article document but does not cancel remote posts.
+Guest-first workspace with Buffer OAuth account recovery and browser-session revocation. Default is private drafts and manual approval. Auto-publish is off until the writer explicitly authorizes immediate, public AI-written Notes for a chosen channel and count. Only publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Source references are resolved to exact original passages on the server. Clear-data control removes imported writing and resumable copies but does not cancel remote posts or disconnect the feed. Privacy details stay on the privacy page, not throughout the writing interface.
 
 ## Ship gate
 

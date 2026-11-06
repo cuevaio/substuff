@@ -37,7 +37,7 @@ async function connectionStatus(): Promise<Connection> {
     throw new Error(data.error || "Couldn’t connect to Buffer.");
   return data;
 }
-const connectionQuery = {
+export const connectionQuery = {
   queryKey: ["buffer-connection"],
   queryFn: connectionStatus,
 };

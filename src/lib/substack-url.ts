@@ -24,3 +24,26 @@ export function parseSubstackUrl(value: string) {
     slug: match[1],
   };
 }
+
+export function parsePublicationUrl(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new Error("Add your Substack publication link.");
+  }
+  if (
+    url.protocol !== "https:" ||
+    url.port ||
+    url.username ||
+    url.password ||
+    !/^[a-z0-9][a-z0-9-]{0,62}\.substack\.com$/.test(url.hostname) ||
+    !["/", "/feed", "/feed/"].includes(url.pathname)
+  )
+    throw new Error("Use a publication link like yourname.substack.com.");
+  return {
+    url: `https://${url.hostname}`,
+    feedUrl: `https://${url.hostname}/feed`,
+    host: url.hostname,
+  };
+}
