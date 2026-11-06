@@ -9,6 +9,15 @@ const buttonVariants = cva("button", {
       default: "primary",
       secondary: "secondary",
       ghost: "text-button",
+      outline: "button-outline",
+      destructive: "button-destructive",
+      link: "text-button",
+    },
+    size: {
+      default: "",
+      sm: "button-sm",
+      lg: "button-lg",
+      icon: "button-icon",
     },
   },
   defaultVariants: { variant: "default" },
@@ -17,6 +26,7 @@ const buttonVariants = cva("button", {
 function Button({
   className,
   variant,
+  size,
   asChild = false,
   type = "button",
   ...props
@@ -27,7 +37,7 @@ function Button({
     <Component
       data-slot="button"
       type={type}
-      className={cn(buttonVariants({ variant, className }))}
+      className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   );

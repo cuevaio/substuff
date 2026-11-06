@@ -1,58 +1,36 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowDownToLine,
   ArrowRight,
-  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronRight,
   Copy,
   FileText,
-  LoaderCircle,
-  Menu,
-  Plus,
   RotateCcw,
-  Settings2,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { AppSidebar } from "@/components/app-sidebar";
+import { Brand, Mark } from "@/components/brand";
 import { BufferPanel, BufferPreferences } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
-import { Button } from "@/components/ui/button";
+import { ImportForm } from "@/components/import-form";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type Article,
-  articleInput,
   exportNotes,
-  extractNotes,
   generatedNotes,
   type Note,
   sampleArticle,
   workspaceSchema,
 } from "@/lib/content";
+import { parseSubstackUrl } from "@/lib/substack-url";
 
 const STORAGE = "substuff.workspace.v1";
 type Modal = "article" | "review" | "settings" | null;
 type SaveState = "saved" | "saving" | "unavailable";
-
-function Mark() {
-  return (
-    <svg
-      width="23"
-      height="26"
-      viewBox="0 0 28 32"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M22 5H11a7 7 0 0 0 0 14h6a4 4 0 0 1 0 8H5M23 11H11a1 1 0 0 0 0 2h6a10 10 0 0 1 0 20"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 function AutoTextarea({
   value,
@@ -95,6 +73,7 @@ function AutoTextarea({
 }
 
 export default function Home() {
+  const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
   const [activeId, setActiveId] = useState("");
@@ -102,14 +81,10 @@ export default function Home() {
   const [modal, setModal] = useState<Modal>(null);
   const [tab, setTab] = useState<"notes" | "source">("notes");
   const [filter, setFilter] = useState<"all" | "approved">("all");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState("");
   const [sourceId, setSourceId] = useState<string | null>(null);
-  const [aiAvailable, setAiAvailable] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [error, setError] = useState("");
-  const [generating, setGenerating] = useState(false);
+  const importAbort = useRef<AbortController | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [restoreNote, setRestoreNote] = useState<Note | null>(null);
   const [cloud, setCloud] = useState(false);
@@ -125,6 +100,9 @@ export default function Home() {
     article?.notes.filter((n) => filter !== "approved" || n.approved) ?? [];
 
   useEffect(() => {
+    setSidebarOpen(
+      !document.cookie.split("; ").includes("sidebar_state=false"),
+    );
     async function restore() {
       let local: ReturnType<typeof workspaceSchema.parse> | null = null;
       try {
@@ -183,16 +161,12 @@ export default function Home() {
         }
         cloudPaused.current = true;
         setSaveError(
-          "Cloud storage is unavailable. Working from this device’s backup.",
+          "Couldn’t open your saved workspace. Your edits are available on this device.",
         );
       }
       setLoaded(true);
     }
     void restore();
-    fetch("/api/generate")
-      .then((r) => r.json())
-      .then((data) => setAiAvailable(data.available === true))
-      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -230,7 +204,7 @@ export default function Home() {
             setSaveError(
               cause instanceof Error
                 ? cause.message
-                : "Cloud save paused. Export a copy of your edits.",
+                : "Saving is paused. Export a copy of your edits.",
             );
           }
         });
@@ -244,7 +218,7 @@ export default function Home() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (!cloud || cloudPaused.current)
       throw new Error(
-        "Cloud save is paused. Export your edits and reload before connecting or sending.",
+        "Saving is paused. Export your edits and reload before sharing.",
       );
     const document = { version: 1 as const, articles, activeId };
     try {
@@ -254,9 +228,7 @@ export default function Home() {
     }
     const operation = saveQueue.current.then(async () => {
       if (cloudPaused.current)
-        throw new Error(
-          "Cloud save is paused. Export a copy before reloading.",
-        );
+        throw new Error("Saving is paused. Export a copy before reloading.");
       setSaveState("saving");
       const response = await fetch("/api/workspace", {
         method: "PUT",
@@ -277,7 +249,7 @@ export default function Home() {
       cloudPaused.current = true;
       setSaveState("unavailable");
       setSaveError(
-        cause instanceof Error ? cause.message : "Cloud save paused.",
+        cause instanceof Error ? cause.message : "Saving is paused.",
       );
       throw cause;
     }
@@ -294,7 +266,6 @@ export default function Home() {
     setTab("notes");
     setFilter("all");
     setSourceId(null);
-    setSidebarOpen(false);
   }
 
   function addArticle(next: Article) {
@@ -304,15 +275,10 @@ export default function Home() {
     ]);
     selectArticle(next.id);
     setModal(null);
-    setTitle("");
-    setContent("");
-    setError("");
   }
 
   function openArticle() {
-    setError("");
     setModal("article");
-    setSidebarOpen(false);
   }
 
   function loadSample() {
@@ -337,49 +303,72 @@ export default function Home() {
     );
   }
 
-  async function createArticle(useAI: boolean) {
-    const input = articleInput.safeParse({ title, content });
-    if (!input.success) {
-      setError(input.error.issues[0].message);
+  async function importArticle(url: string) {
+    const source = parseSubstackUrl(url);
+    const existing = articles.find((a) => a.sourceUrl === source.url);
+    if (existing) {
+      selectArticle(existing.id);
+      setModal(null);
+      setToast("Already imported");
       return;
     }
-    setError("");
-    setGenerating(true);
+    const controller = new AbortController();
+    importAbort.current = controller;
     try {
-      let notes: Note[];
-      if (useAI) {
-        const response = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(input.data),
-        });
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(
-            data.error || "We couldn’t create Notes. Please try again.",
-          );
-        notes = generatedNotes.parse(data).notes.map((n, index) => ({
+      const input = await queryClient.fetchQuery({
+        queryKey: ["imported-post", source.url],
+        staleTime: 300000,
+        queryFn: async () => {
+          const imported = await fetch("/api/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: source.url }),
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(20000),
+            ]),
+          });
+          const data = await imported.json();
+          if (!imported.ok)
+            throw new Error(data.error || "Couldn’t import that post.");
+          return data as { title: string; content: string; sourceUrl: string };
+        },
+      });
+      controller.signal.throwIfAborted();
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: input.title, content: input.content }),
+        signal: AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(60000),
+        ]),
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(
+          data.error || "We couldn’t create Notes. Please try again.",
+        );
+      const notes: Note[] = generatedNotes
+        .parse(data)
+        .notes.map((n, index) => ({
           ...n,
           id: `note-${index}`,
           original: n.text,
           approved: false,
         }));
-      } else notes = extractNotes(input.data.content);
+      controller.signal.throwIfAborted();
       addArticle({
         id: crypto.randomUUID(),
-        ...input.data,
+        title: input.title,
+        content: input.content,
+        sourceUrl: input.sourceUrl,
         notes,
         createdAt: new Date().toISOString(),
-        mode: useAI ? "ai" : "excerpts",
+        mode: "ai",
       });
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Something went wrong. Your article is still here.",
-      );
     } finally {
-      setGenerating(false);
+      if (importAbort.current === controller) importAbort.current = null;
     }
   }
 
@@ -425,162 +414,49 @@ export default function Home() {
       {!article ? (
         <div className="welcome-shell">
           <header className="welcome-header">
-            <a href="/" className="brand" aria-label="substuff home">
-              <Mark />
-              <span>substuff</span>
+            <Brand />
+            <a href="/privacy" className="text-button">
+              Privacy
             </a>
-            <span className="quiet">A little more from your writing.</span>
           </header>
           <main id="main" className="welcome">
             <div className="welcome-copy">
-              <span className="eyebrow">FOR THE WRITERS</span>
-              <h1>
-                Your writing,
-                <br />
-                <span className="welcome-title-second">continued.</span>
-              </h1>
-              <p>
-                Turn an article into a few good Notes.
-                <br className="desktop-break" /> Make them yours. Find your
-                rhythm.
-              </p>
-              <Button onClick={openArticle}>
-                Start with an article <ArrowRight size={17} />
-              </Button>
+              <h1>More from every post.</h1>
+              <p>Turn your published Substack posts into Notes.</p>
+              <ImportForm onImport={importArticle} />
               <button
                 type="button"
                 className="text-button sample-link"
                 onClick={loadSample}
               >
-                Or take a look around <ArrowUpRight size={15} />
+                Try an example <ArrowRight size={14} />
               </button>
-              <span className="welcome-footnote">
-                No account needed. Nothing posts without you.
-              </span>
-            </div>
-            <div
-              className="welcome-preview"
-              role="img"
-              aria-label="Example of an article becoming a Note"
-            >
-              <div className="preview-source">
-                <div className="preview-meta">
-                  <FileText size={15} />
-                  <span>From your article</span>
-                </div>
-                <h2>
-                  A little less,
-                  <br />a little better
-                </h2>
-                <p>
-                  We talk about consistency as if it means doing more, more
-                  often. I’m beginning to think it means making fewer promises
-                  and keeping them.
-                </p>
-                <div className="faded-lines">
-                  <i />
-                  <i />
-                  <i />
-                </div>
-              </div>
-              <div className="preview-connector">
-                <span />
-                <ArrowDownToLine size={17} />
-                <span />
-              </div>
-              <div className="preview-note">
-                <div className="preview-meta">
-                  <Mark />
-                  <span>A thought worth sharing</span>
-                </div>
-                <p>
-                  Maybe consistency isn’t doing more, more often.
-                  <br />
-                  <br />
-                  Maybe it’s making fewer promises and keeping them.
-                </p>
-                <div className="preview-bottom">
-                  <span>Still sounds like you.</span>
-                  <Check size={16} />
-                </div>
-              </div>
             </div>
           </main>
-          <footer className="welcome-footer">
-            <span>Less starting over. More showing up.</span>
-            <span>Made for your words, not more noise.</span>
-          </footer>
         </div>
       ) : (
-        <div className="app-shell">
-          {sidebarOpen && (
-            <button
-              className="sidebar-scrim"
-              type="button"
-              aria-label="Close navigation"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-          <aside
-            className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}
-            aria-label="Article navigation"
-          >
-            <a href="/" className="brand" aria-label="substuff home">
-              <Mark />
-              <span>substuff</span>
-            </a>
-            <button type="button" className="new-article" onClick={openArticle}>
-              <Plus size={17} /> Add an article
-            </button>
-            <div className="sidebar-label">YOUR WRITING</div>
-            <nav className="article-nav">
-              {articles.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  className={
-                    article.id === a.id ? "article-link active" : "article-link"
-                  }
-                  onClick={() => selectArticle(a.id)}
-                  aria-current={article.id === a.id ? "page" : undefined}
-                >
-                  <FileText size={16} />
-                  <span>{a.title}</span>
-                  <ChevronRight size={13} />
-                </button>
-              ))}
-            </nav>
-            <div className="sidebar-bottom">
-              <span className="connection-label">
-                <span className="status-dot" />{" "}
-                {cloud ? "Private workspace" : "Local workspace"}
-              </span>
-              <button
-                className="sidebar-settings"
-                type="button"
-                onClick={() => {
-                  setModal("settings");
-                  setSidebarOpen(false);
-                }}
-              >
-                <Settings2 size={16} /> Preferences
-              </button>
-            </div>
-          </aside>
+        <SidebarProvider
+          open={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+          className="app-shell"
+          style={
+            {
+              "--review-offset": sidebarOpen ? "16rem" : "0px",
+            } as React.CSSProperties
+          }
+        >
+          <AppSidebar
+            articles={articles}
+            activeId={article.id}
+            onSelect={selectArticle}
+            onImport={openArticle}
+            onSettings={() => setModal("settings")}
+          />
           <div className="workspace">
             <header className="workspace-header">
               <div className="breadcrumb">
-                <button
-                  className="icon-button mobile-menu"
-                  type="button"
-                  aria-label="Open navigation"
-                  onClick={() => setSidebarOpen(true)}
-                >
-                  <Menu size={19} />
-                </button>
-                <span>Your writing</span>
-                <ChevronRight size={13} />
-                <span>{article.title}</span>
+                <SidebarTrigger className="workspace-sidebar-trigger" />
+                <span>Notes</span>
               </div>
               <span className="save-state" role="status">
                 {saveState === "saving" ? (
@@ -589,10 +465,7 @@ export default function Home() {
                   "Save paused · export a copy"
                 ) : (
                   <>
-                    <Check size={13} />{" "}
-                    {cloud && !cloudPaused.current
-                      ? "All changes saved"
-                      : "Saved on this device"}
+                    <Check size={13} /> Saved
                   </>
                 )}
               </span>
@@ -604,21 +477,20 @@ export default function Home() {
                 </p>
               )}
               <div className="article-heading">
-                <div className="article-context">
-                  {article.mode === "sample"
-                    ? "SAMPLE ARTICLE"
-                    : article.mode === "excerpts"
-                      ? "SOURCE EXCERPTS"
-                      : "YOUR ARTICLE"}
-                  <span>·</span>
-                  {article.notes.length} Notes
-                </div>
+                {article.mode === "sample" && (
+                  <span className="sample-badge">Example</span>
+                )}
                 <h1>{article.title}</h1>
-                <p>
-                  {article.mode === "excerpts"
-                    ? "Passages from your article. Shape them into Notes, in your own words."
-                    : "A few thoughts from your article. Make them yours."}
-                </p>
+                {article.sourceUrl && (
+                  <a
+                    className="article-origin"
+                    href={article.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Read on Substack <ChevronRight size={12} />
+                  </a>
+                )}
               </div>
               <div className="editor-tabs">
                 <div role="tablist" aria-label="Article view">
@@ -656,7 +528,7 @@ export default function Home() {
                       }
                     }}
                   >
-                    Original article
+                    Original post
                   </button>
                 </div>
                 {tab === "notes" && (
@@ -702,7 +574,6 @@ export default function Home() {
                       </div>
                       <div className="note-content">
                         <div className="note-top">
-                          <span>{note.angle}</span>
                           <button
                             type="button"
                             className={`approve-button ${note.approved ? "approved" : ""}`}
@@ -735,16 +606,13 @@ export default function Home() {
                             }
                           >
                             <FileText size={13} />
-                            Source passage
+                            Source
                             <ChevronDown
                               size={12}
                               className={sourceId === note.id ? "rotated" : ""}
                             />
                           </button>
                           <div>
-                            <span className="character-count">
-                              {note.text.length.toLocaleString()} characters
-                            </span>
                             <button
                               className="icon-button"
                               type="button"
@@ -786,14 +654,13 @@ export default function Home() {
                 </section>
               )}
               <div className="editor-end">
-                <span>Good Notes start with your point of view.</span>
                 {article.mode === "sample" && (
                   <button
                     type="button"
                     className="text-button"
                     onClick={openArticle}
                   >
-                    Try your own article <ArrowRight size={14} />
+                    Import your post <ArrowRight size={14} />
                   </button>
                 )}
               </div>
@@ -803,12 +670,7 @@ export default function Home() {
                 <span className="review-count">
                   {approved.length
                     ? `${approved.length} of ${article.notes.length} approved`
-                    : "Take a moment. Make them yours."}
-                </span>
-                <span className="review-caption">
-                  {approved.length
-                    ? "Only approved Notes move forward."
-                    : "Approve the thoughts you want to share."}
+                    : "Choose Notes to share"}
                 </span>
               </div>
               <button
@@ -825,113 +687,26 @@ export default function Home() {
               </button>
             </footer>
           </div>
-        </div>
+        </SidebarProvider>
       )}
 
       {modal === "article" && (
         <Dialog
-          title="Start with your words."
-          wide
+          title="Import a post"
           onClose={() => {
-            if (!generating) setModal(null);
+            importAbort.current?.abort();
+            setModal(null);
           }}
         >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void createArticle(aiAvailable);
-            }}
-            className="article-form"
-          >
-            <p className="dialog-description">
-              Paste an article you wrote. We’ll find a few thoughts worth
-              sharing.
-            </p>
-            <label htmlFor="article-title">Article title</label>
-            <input
-              id="article-title"
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What’s your article called?"
-              maxLength={180}
-              disabled={generating}
-              required
-            />
-            <label htmlFor="article-content">Your article</label>
-            <textarea
-              id="article-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="The whole piece, or a section you want to share…"
-              maxLength={60000}
-              disabled={generating}
-              required
-            />
-            <div className="input-caption">
-              <span>{content.length.toLocaleString()} / 60,000 characters</span>
-              <span>At least 200 characters</span>
-            </div>
-            {error && (
-              <p role="alert" className="inline-error">
-                {error}
-              </p>
-            )}
-            <p className="privacy-note">
-              {aiAvailable
-                ? "Creating Notes sends your article through Vercel AI Gateway to Google Gemini, with OpenAI as a fallback. Only use writing you have permission to share."
-                : "AI writing isn’t connected in this preview. Start with exact excerpts and edit them yourself."}{" "}
-              {cloud
-                ? "Your drafts are stored privately for this browser’s workspace, with a local backup."
-                : "Drafts stay on this device."}
-            </p>
-            <div className="dialog-actions">
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setModal(null)}
-                disabled={generating}
-              >
-                Cancel
-              </button>
-              <div>
-                {aiAvailable && error && (
-                  <button
-                    type="button"
-                    className="text-button"
-                    disabled={generating}
-                    onClick={() => createArticle(false)}
-                  >
-                    Use excerpts instead
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="button primary"
-                  disabled={
-                    generating || !title.trim() || content.trim().length < 200
-                  }
-                >
-                  {generating ? (
-                    <>
-                      <LoaderCircle className="spinner" size={16} /> Finding
-                      your Notes…
-                    </>
-                  ) : (
-                    <>
-                      {aiAvailable ? "Create Notes" : "Start with excerpts"}
-                      <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </form>
+          <p className="dialog-description">
+            Add a published Substack post link.
+          </p>
+          <ImportForm onImport={importArticle} />
         </Dialog>
       )}
 
       {modal === "review" && article && (
-        <Dialog title="Ready when you are." onClose={() => setModal(null)}>
+        <Dialog title="Share Notes" onClose={() => setModal(null)}>
           <BufferPanel
             article={article}
             beforeSend={flushWorkspace}
@@ -942,32 +717,16 @@ export default function Home() {
 
       {modal === "settings" && (
         <Dialog
-          title="Your workspace."
+          title="Settings"
           onClose={() => {
             setModal(null);
             setConfirmClear(false);
           }}
         >
-          <div className="settings-row">
-            <span>Storage</span>
-            <p>
-              {cloud
-                ? "Drafts are saved privately in Neon, with a backup on this device. This browser keeps access for 30 days; connecting the same Buffer account can recover your workspace on another device."
-                : "Articles and edits stay in this browser. They aren’t synced across devices. Export anything you want to keep."}
-            </p>
-          </div>
-          <div className="settings-row">
-            <span>AI writing</span>
-            <p>
-              {aiAvailable
-                ? "Connected through Vercel AI Gateway. Gemini Flash Lite creates drafts, with GPT-4.1 mini as a fallback. Only runs when you choose Create Notes."
-                : "Not connected. Configure AI Gateway and Neon to enable article-to-Notes writing. Excerpts work without them."}
-            </p>
-          </div>
-          <div className="settings-row">
-            <span>Buffer</span>
-            <BufferPreferences beforeConnect={flushWorkspace} />
-          </div>
+          <BufferPreferences beforeConnect={flushWorkspace} />
+          <a href="/privacy" className="text-button">
+            Privacy
+          </a>
           <div className="dialog-actions">
             <button
               className="text-button"
@@ -987,8 +746,7 @@ export default function Home() {
           {confirmClear && (
             <div className="clear-confirm">
               <p>
-                This removes every article and edit from this workspace. Export
-                your approved Notes first. It does not cancel posts already in
+                Delete all imported posts and edits? Scheduled Notes stay in
                 Buffer.
               </p>
               <button
@@ -1002,7 +760,7 @@ export default function Home() {
                   setToast("Workspace cleared");
                 }}
               >
-                Delete articles and edits
+                Delete posts and edits
               </button>
             </div>
           )}

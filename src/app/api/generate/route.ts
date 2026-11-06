@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "AI writing isn’t connected yet. You can start with excerpts instead.",
+          "Creating Notes is temporarily unavailable. Please try again later.",
       },
       { status: 503 },
     );
@@ -67,8 +67,7 @@ export async function POST(request: Request) {
     if (!(await claimGeneration(request)))
       return NextResponse.json(
         {
-          error:
-            "That’s today’s writing limit. Your existing drafts are safe; you can still start with excerpts.",
+          error: "You’ve reached today’s Note limit. Try again tomorrow.",
         },
         { status: 429 },
       );
@@ -102,7 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "We couldn’t create reliable drafts this time. Nothing was changed. Try again, or start with excerpts.",
+          "We couldn’t create Notes this time. Nothing was changed. Please try again.",
       },
       { status: 502 },
     );

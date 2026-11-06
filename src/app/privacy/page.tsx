@@ -1,11 +1,9 @@
-import Link from "next/link";
+import { Brand } from "@/components/brand";
 
 export default function Privacy() {
   return (
     <main className="policy-page">
-      <Link href="/" className="brand">
-        substuff
-      </Link>
+      <Brand />
       <h1>Your writing stays yours.</h1>
       <p>Last updated November 6, 2026.</p>
       <h2>What we store</h2>

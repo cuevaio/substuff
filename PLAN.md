@@ -4,8 +4,8 @@ One article → a few good Notes → a quick edit → an approved week.
 
 ## Journey
 
-1. **Start:** one sentence, paste an article, or try a clearly labeled sample. No account, questionnaire, or premature Buffer consent.
-2. **Review:** article list, editable Notes, optional source passage. Autosave locally. Approve or skip. Undo changes.
+1. **Start:** link a published Substack post, or try a clearly labeled example. No article creation, pasted-article editor, questionnaire or premature Buffer consent.
+2. **Review:** collapsible post navigation, editable Notes and an optional source passage. Autosave. Approve or skip. Undo changes.
 3. **Schedule:** select approved Notes and dates. Connect Buffer here, not before value. Never call a local draft “scheduled.”
 4. **Return:** resume the last article and edits. Later, a connected feed brings the next article into the same workflow.
 
@@ -16,6 +16,8 @@ One article → a few good Notes → a quick edit → an approved week.
 - Inter fallback: Mercury's Arcadia fonts are proprietary and not bundled.
 - Direct editing, visible focus, native undo, reduced-motion support, accessible dialogs and touch targets.
 - Emil design engineering skill is installed and applied. No decorative motion or dashboard metrics.
+- Writers see only the next useful action. No provider names, storage explanations, slogans, redundant eyebrow labels or permanent publishing ledgers in the editing UI. Essential errors, public scheduling choices and destructive confirmations remain visible.
+- Use shadcn Sidebar, Select and Calendar/Popover controls. TanStack Query caches connection, activity and imported-source reads; publishing mutations never retry automatically. Existing Buffer OAuth is enough for the current account model; Clerk is not required for this scope.
 
 ## Build order
 
@@ -24,12 +26,13 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] Bun, Biome, Husky, shadcn/Radix primitives, Drizzle schema + migrations, dedicated Neon database, GitHub and personal Vercel project.
 - [x] Public first-slice deployment at https://substuff.vercel.app; Git-triggered releases, live storage/model smoke tests and desktop/mobile browser checks.
 - [x] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation. Production private draft, duplicate prevention, draft cancellation, token renewal, reconnect and one approved public scheduled delivery verified.
-- [ ] Feed detection, source versioning, duplicate protection, weekly review reminder.
+- [x] Published Substack post-link import, canonical source links and repeat-import protection that preserves edits.
+- [ ] Automatic feed detection, source versioning and weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 
 ## First-slice boundaries
 
-Guest-first workspace with optional Buffer OAuth account recovery. No silent public upload, fake AI progress, or simulated publishing. Article content is sent to the configured model only after an explicit generation action and privacy disclosure. Drizzle/Neon stores drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the article document but does not cancel remote posts. No arbitrary URL fetching in this slice.
+Guest-first workspace with optional Buffer OAuth account recovery. No silent public upload, fake AI progress, or simulated publishing. Only published, publicly available posts on publication.substack.com/p/... are imported; paywalls and arbitrary URL fetching are rejected. Create Notes explicitly imports the linked article and requests drafts. Privacy details live on the privacy page, not throughout the writing interface. Drizzle/Neon stores drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the article document but does not cancel remote posts.
 
 ## Ship gate
 

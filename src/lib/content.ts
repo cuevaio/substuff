@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseSubstackUrl } from "./substack-url";
 
 export const articleInput = z.object({
   title: z.string().trim().min(1, "Add a title.").max(180),
@@ -46,6 +47,7 @@ export type Article = {
   content: string;
   createdAt: string;
   mode: "sample" | "excerpts" | "ai";
+  sourceUrl?: string;
   notes: Note[];
 };
 
@@ -60,6 +62,17 @@ export const workspaceSchema = z.object({
         content: z.string().max(60000),
         createdAt: z.string().max(40),
         mode: z.enum(["sample", "excerpts", "ai"]),
+        sourceUrl: z
+          .string()
+          .max(2048)
+          .refine((value) => {
+            try {
+              return parseSubstackUrl(value).url === value;
+            } catch {
+              return false;
+            }
+          })
+          .optional(),
         notes: z
           .array(
             z.object({

@@ -62,3 +62,16 @@ Ignored local `artifacts/`: onboarding, desktop workspace, mobile workspace, and
 - Followed Go to post in Buffer. Actual Substack page `https://substack.com/profile/304869265-anthony/note/c-380126546` opened; its title and rendered body contained the exact approved text.
 - Clicked Refresh status in substuff: UI changed to Published. Independent database read confirmed one `sent` receipt, one `cancelled` receipt and no remaining scheduled receipt. Ignored UI evidence: `artifacts/substuff-published-receipt.jpeg`.
 - Local ignored screenshot of the scheduled card: `artifacts/buffer-approved-scheduled-test.jpeg`. The public test Note was intentionally left published; deletion was not authorized.
+
+## Minimal interface and post-link import — November 6, 2026
+
+- Removed the pasted-article creation form, landing eyebrow/slogans/illustration, sidebar workspace status, editorial captions, angle labels, routine character counts and storage/model-provider explanations from the writing/settings UI. Existing saved posts and Notes are preserved.
+- Added the official shadcn Sidebar, Select, Calendar, Popover and supporting primitives, with Tailwind 4 using the existing palette. Fixed the clipped mark with a shared square geometric mark; header, sidebar and privacy page now reuse the same Brand component.
+- TanStack Query caches connection/activity and bounded imported-source reads. Mutation retries remain disabled. Existing Buffer OAuth is retained; no Clerk dependency or new auth provider was needed.
+- All 35 unit tests and optimized build pass. Import regression tests cover URL canonicalization/host and protocol restrictions, unsafe saved source links, HTML extraction, paywalls/previews/unpublished content, manual redirect handling and bounded response streams.
+- Local production build: imported the actual published post `https://cuevaio.substack.com/p/you-should-go-to-more-hackathons`, generated four grounded Notes, reloaded and independently read its persisted canonical source link and Notes. One earlier generation was rejected by the editorial guard; an explicit retry succeeded. The guard was not weakened.
+- Approved then edited a local QA Note: approval cleared. Re-imported the same post with a trailing slash and tracking query; one post remained, with the edited text preserved. Restored only the disposable edit through confirmation.
+- Desktop sidebar collapse freed the full workspace/footer width and made offscreen navigation inert. Reload preserved the collapsed state; reopening worked. No horizontal overflow or clipped Note editors in the measured desktop viewport.
+- Local UI fixture only (outgoing publishing disabled): opened the multi-channel Select, selected a channel, opened Calendar, verified past days disabled, selected Nov 8 and confirmed the popover closed while preserving 10:00. This is component evidence, not new Buffer delivery evidence. Found and fixed a utility-style collision that squeezed the date button; kept time input width explicit.
+- Independent server-side headless browser could not launch because the host has no usable Chromium sandbox. No sandbox/security restrictions were disabled. Mobile/device acceptance remains unverified in this pass; desktop in-app browser testing continued.
+- No additional public post was authorized or published during this UI pass.

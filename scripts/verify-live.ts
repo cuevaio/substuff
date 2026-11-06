@@ -22,6 +22,21 @@ const denied = await fetch(`${origin}/api/workspace`, {
   body: JSON.stringify({ revision: 0, document }),
 });
 assert.equal(denied.status, 403);
+const importDenied = await fetch(`${origin}/api/import`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Origin: "https://example.org",
+  },
+  body: JSON.stringify({ url: "https://writer.substack.com/p/test" }),
+});
+assert.equal(importDenied.status, 403);
+const unsafeImport = await fetch(`${origin}/api/import`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({ url: "http://127.0.0.1/private" }),
+});
+assert.equal(unsafeImport.status, 400);
 
 const save = await fetch(`${origin}/api/workspace`, {
   method: "PUT",
@@ -64,7 +79,7 @@ const cleared = await fetch(`${origin}/api/workspace`, {
 });
 assert.equal(cleared.status, 200);
 console.log(
-  "PASS: Neon persistence, cookie isolation, origin protection, revision conflict, input rejection, workspace clearing.",
+  "PASS: Neon persistence, cookie isolation, origin protection, import URL rejection, revision conflict, input rejection, workspace clearing.",
 );
 
 if (process.argv.includes("--ai")) {

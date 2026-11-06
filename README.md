@@ -31,7 +31,7 @@ No credentials are necessary for sample/excerpt editing. Actual AI generation re
 
 ## Implemented
 
-- Start without signup, paste an article, or explore a labeled sample.
+- Start without signup, import a published Substack post by link, or explore a labeled example. There is no article-creation or paste flow.
 - Source-linked AI drafts or explicitly labeled exact excerpts.
 - Inline editing, approval invalidated on edit, copy, draft restore confirmation, approved-only export.
 - Drizzle/Neon private guest workspace with browser-local backup, serialized autosave, optimistic revision conflicts, clear-data control.
@@ -39,6 +39,8 @@ No credentials are necessary for sample/excerpt editing. Actual AI generation re
 - Biome, pre-commit/pre-push checks, GitHub CI, Vercel Git integration.
 - Buffer OAuth/PKCE, encrypted credentials, serialized refresh, Substack channel discovery, explicit approved-version draft/schedule requests, persisted delivery receipts and cancellation.
 - Canonical Buffer-account workspace recovery; reconnecting the same account in another browser restores its workspace.
+- Collapsible shadcn sidebar, Select, Calendar/Popover date picker and minimal sharing/settings dialogs. TanStack Query caches shared server reads; publishing mutations never retry automatically.
+- Safe post import through a fixed Substack API path: HTTPS publication hosts only, no redirects, bounded response size/deadline, no paywall bypass. Re-importing a canonical source opens its existing Notes without overwriting edits.
 
 ## Privacy and boundaries
 
@@ -50,7 +52,7 @@ Public generation is limited to ten attempts per UTC day per hashed IP, with a s
 
 Publishing requires exact server-approved text and a selected Substack channel. Public scheduling also requires explicit consent and valid future times. Samples can create private drafts only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer does not cancel remote posts.
 
-**Not implemented:** feed/URL import, background article detection, standalone account authentication, billing. Production OAuth, private draft delivery, duplicate prevention, draft cancellation, induced token renewal, reconnect and one explicitly approved public scheduled delivery are verified. Cross-browser recovery and scheduled-post cancellation still require acceptance testing. See [QA.md](QA.md).
+**Not implemented:** custom-domain imports, automatic feed detection, standalone account authentication, billing. Production OAuth, private draft delivery, duplicate prevention, draft cancellation, induced token renewal, reconnect and one explicitly approved public scheduled delivery are verified. Cross-browser recovery and scheduled-post cancellation still require acceptance testing. See [QA.md](QA.md).
 
 ## Checks
 

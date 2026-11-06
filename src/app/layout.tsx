@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter";
 import "./globals.css";
+import { QueryProvider } from "@/components/query-provider";
 
 export const metadata: Metadata = {
   title: "substuff — Your writing, continued.",
   description:
-    "Turn your articles into Notes worth sharing. Edit, approve, and find your rhythm.",
+    "Turn published Substack posts into Notes. Edit, approve, and schedule.",
 };
 
 export default function RootLayout({
@@ -15,7 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }
