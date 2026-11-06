@@ -23,14 +23,14 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] AI SDK + Vercel AI Gateway generation with exact source references; Gemini Flash Lite. Honest excerpt mode without credentials.
 - [x] Bun, Biome, Husky, shadcn/Radix primitives, Drizzle schema + migrations, dedicated Neon database, GitHub and personal Vercel project.
 - [x] Public first-slice deployment at https://substuff.vercel.app; Git-triggered releases, live storage/model smoke tests and desktop/mobile browser checks.
-- [ ] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation.
+- [x] Buffer OAuth + PKCE, encrypted server-side tokens, channel selection, publishing ledger, explicit scheduling, reconciliation. Production private draft, duplicate prevention and cancellation verified; public scheduling/delivery acceptance remains open.
 - [ ] Feed detection, source versioning, duplicate protection, weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 
 ## First-slice boundaries
 
-Minimal guest-workspace prototype. No full account login yet. No silent public upload, fake AI progress, or simulated publishing. Article content is sent to the configured model only after an explicit generation action and privacy disclosure. Drizzle/Neon stores guest drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the document. No arbitrary URL fetching in this slice.
+Guest-first workspace with optional Buffer OAuth account recovery. No silent public upload, fake AI progress, or simulated publishing. Article content is sent to the configured model only after an explicit generation action and privacy disclosure. Drizzle/Neon stores drafts behind a private HttpOnly cookie, with a local backup. Clear-data control overwrites the article document but does not cancel remote posts. No arbitrary URL fetching in this slice.
 
 ## Ship gate
 
-Build/typecheck/tests pass. Browser-check first visit, sample, paste, edit, reload, approve, undo, export, keyboard dialog navigation, mobile and empty states. Live Buffer publishing remains blocked until the OAuth client is configured and tested.
+Build/typecheck/tests pass. Browser-check first visit, sample, paste, edit, reload, approve, undo, export, keyboard dialog navigation, mobile and empty states. Production OAuth and private Buffer draft flows pass. Public scheduled delivery, cross-browser recovery and refresh/reconnect acceptance remain open; obtain approval before any public test post.

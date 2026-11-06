@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import type { BufferChannel } from "@/lib/buffer";
 import type { Article } from "@/lib/content";
 import type { DeliveryReceipt } from "@/lib/delivery";
+import { validScheduleBatch } from "@/lib/schedule";
 
 type Connection = {
   configured: boolean;
@@ -104,6 +105,7 @@ export function BufferPanel({
     (channel) => channel.id === channelId,
   );
   const schedule = start ? dates(start, notes.length) : [];
+  const scheduleValid = validScheduleBatch(schedule);
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const loadHistory = useCallback(
@@ -154,6 +156,12 @@ export function BufferPanel({
   }
 
   async function send() {
+    if (mode === "schedule" && !validScheduleBatch(schedule)) {
+      setError(
+        "Choose publishing times between five minutes and 90 days from now.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -376,6 +384,7 @@ export function BufferPanel({
                     type="datetime-local"
                     value={start}
                     min={localInput(new Date(Date.now() + 6 * 60000))}
+                    max={localInput(new Date(Date.now() + 90 * 86400000))}
                     onChange={(event) => {
                       setStart(event.target.value);
                       setConfirmed(false);
@@ -386,6 +395,12 @@ export function BufferPanel({
                   <p className="input-caption">
                     One Note per day, at the same local time. {zone}
                   </p>
+                  {!scheduleValid && (
+                    <p className="privacy-note" role="status">
+                      Choose times between five minutes and 90 days from now for
+                      every Note.
+                    </p>
+                  )}
                 </>
               )}
               <ol className="approved-preview send-preview">
@@ -441,7 +456,7 @@ export function BufferPanel({
                     channel?.isDisconnected ||
                     channel?.isLocked ||
                     (mode === "schedule" &&
-                      (!confirmed || !start || channel?.isQueuePaused))
+                      (!confirmed || !scheduleValid || channel?.isQueuePaused))
                   }
                 >
                   {busy ? <LoaderCircle size={15} className="spinner" /> : null}

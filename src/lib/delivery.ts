@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { Article } from "./content";
+import { validSchedule } from "./schedule";
 import { digest } from "./session";
+
+export { validSchedule } from "./schedule";
 
 export const deliveryInput = z
   .object({
@@ -35,15 +38,6 @@ export const deliveryInput = z
           "Choose publishing times between five minutes and 90 days from now.",
       });
   });
-
-export function validSchedule(date: string, now = Date.now()) {
-  const time = Date.parse(date);
-  return (
-    Number.isFinite(time) &&
-    time >= now + 5 * 60000 &&
-    time <= now + 90 * 86400000
-  );
-}
 
 export function deliveryKey(
   workspaceId: string,
