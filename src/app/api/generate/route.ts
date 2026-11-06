@@ -92,7 +92,17 @@ export async function POST(request: Request) {
     return NextResponse.json(output, {
       headers: { "Cache-Control": "no-store" },
     });
-  } catch {
+  } catch (cause) {
+    // Deliberately exclude error messages, prompts, provider bodies, and credentials.
+    const diagnostic =
+      cause && typeof cause === "object"
+        ? (cause as { name?: string; statusCode?: number; message?: string })
+        : null;
+    console.warn("substuff.generation_failed", {
+      name: diagnostic?.name ?? "UnknownError",
+      status: diagnostic?.statusCode,
+      editorialGuard: diagnostic?.message === "Ungrounded source",
+    });
     return NextResponse.json(
       {
         error:
