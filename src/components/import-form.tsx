@@ -1,8 +1,8 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, LoaderCircle } from "lucide-react";
 import { useState } from "react";
+import { ArrowRight, LoaderCircle } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { autoQuery, type ImportIntent } from "@/lib/client-settings";

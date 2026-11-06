@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./workspace.css";
+@import "./workflow.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -1018,11 +1019,6 @@
   .approve-button:hover {
     background: var(--control);
   }
-}
-/* Sidebar state changes are instant, including keyboard shortcuts. */
-[data-slot="sidebar-gap"],
-[data-slot="sidebar-container"] {
-  transition: none;
 }
 @media (max-width: 767px) {
   .welcome-shell {

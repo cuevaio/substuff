@@ -1,0 +1,343 @@
+@layer components {
+  .routed-shell .compact-header,
+  .routed-shell [data-slot="sidebar-container"],
+  .note-workflow .article-pane,
+  .note-workflow .article-pane > header,
+  .note-workflow .compact-note,
+  .note-workflow .post-review {
+    border: 0;
+  }
+  .routed-shell [data-slot="sidebar-gap"] {
+    transition: width 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .routed-shell [data-slot="sidebar-container"] {
+    transform: translateX(0);
+    transition: transform 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .routed-shell
+    [data-slot="sidebar"][data-state="collapsed"]
+    [data-slot="sidebar-gap"],
+  .routed-shell
+    [data-slot="sidebar"][data-state="collapsed"]
+    [data-slot="sidebar-container"] {
+    transition-duration: 180ms;
+  }
+  .routed-shell
+    [data-slot="sidebar"][data-state="collapsed"][data-side="left"]
+    [data-slot="sidebar-container"] {
+    transform: translateX(-100%);
+  }
+  .routed-shell
+    [data-slot="sidebar"][data-state="collapsed"][data-side="right"]
+    [data-slot="sidebar-container"] {
+    transform: translateX(100%);
+  }
+  .post-page.note-workflow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+    transition: grid-template-columns 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .post-page.note-workflow.with-source {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.86fr);
+  }
+  .note-workflow .source-drawer {
+    overflow: hidden;
+    min-width: 0;
+    position: sticky;
+    top: 0;
+    height: calc(100svh - 52px);
+  }
+  .note-workflow .article-pane {
+    min-width: 280px;
+    position: static;
+    transform: translateX(0);
+    opacity: 1;
+    transition:
+      transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
+      opacity 180ms ease;
+  }
+  .source-drawer-inner {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .note-workflow .source-drawer[data-open="false"] .article-pane {
+    transform: translateX(24px);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .note-workflow .compact-note {
+    padding: 14px 0 22px;
+    margin-bottom: 14px;
+  }
+  .plain-note-editor,
+  .note-readonly {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.8;
+    letter-spacing: 0.02px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    padding: 6px 0 10px;
+    margin: 0;
+    min-height: 54px;
+  }
+  .plain-note-editor {
+    resize: none;
+    overflow: hidden;
+    outline: none;
+    border-radius: 5px;
+    transition: background-color 150ms ease;
+  }
+  .plain-note-editor:focus-visible {
+    outline: 1px solid var(--strong-border);
+    outline-offset: 6px;
+  }
+  .note-workflow .note-article-card {
+    margin: 10px 0;
+    border: 0;
+    background: var(--surface);
+    transition:
+      background-color 160ms ease,
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .note-workflow .compact-note-tools {
+    margin-top: 8px;
+  }
+  .note-workflow .compact-note-tools > div {
+    gap: 12px;
+  }
+  .note-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--quiet);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .state-approved {
+    color: var(--muted);
+  }
+  .state-posted {
+    color: #91b9aa;
+  }
+  .source-action,
+  .edit-note-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .source-action[aria-pressed="true"] {
+    color: var(--text);
+  }
+  .note-filters {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  .note-filters .text-button {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+  .note-filters [aria-pressed="true"] {
+    color: var(--text);
+    opacity: 1;
+  }
+  .note-workflow .post-review {
+    padding-top: 16px;
+  }
+  .article-prose mark[data-source-highlight] {
+    background: #b4a34840;
+    color: var(--text);
+    border-radius: 2px;
+    box-shadow: 0 0 0 2px #b4a34820;
+    animation: source-reveal 420ms ease-out;
+  }
+  .note-menu {
+    z-index: 90;
+    min-width: 205px;
+    padding: 5px;
+    border-radius: 9px;
+    background: var(--surface);
+    box-shadow:
+      0 8px 36px #0005,
+      0 0 0 1px var(--border);
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  }
+  .note-menu[data-state="open"] {
+    animation: note-menu-in 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .note-menu[data-state="closed"] {
+    animation: note-menu-out 100ms ease-out;
+  }
+  .note-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--muted);
+    outline: none;
+    cursor: pointer;
+  }
+  .note-menu-item [data-state="checked"] {
+    margin-left: auto;
+  }
+  .note-menu-item[data-highlighted] {
+    background: var(--control);
+    color: var(--text);
+  }
+  .note-menu-item[data-disabled] {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .sheet-panel[data-side="left"][data-state="open"] {
+    animation: sidebar-enter-left 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .sheet-panel[data-side="left"][data-state="closed"] {
+    animation: sidebar-exit-left 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .sheet-panel[data-side="right"][data-state="open"] {
+    animation: sidebar-enter-right 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .sheet-panel[data-side="right"][data-state="closed"] {
+    animation: sidebar-exit-right 180ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .sheet-backdrop[data-state="open"] {
+    animation: backdrop-in 180ms ease;
+  }
+  .sheet-backdrop[data-state="closed"] {
+    animation: backdrop-out 140ms ease;
+  }
+  @keyframes note-menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-3px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes note-menu-out {
+    to {
+      opacity: 0;
+      transform: translateY(-2px) scale(0.98);
+    }
+  }
+  @keyframes source-reveal {
+    from {
+      background: #b4a34870;
+    }
+    to {
+      background: #b4a34840;
+    }
+  }
+  @keyframes sidebar-enter-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes sidebar-exit-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sidebar-enter-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes sidebar-exit-right {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes backdrop-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .note-workflow .note-article-card:hover {
+      background: var(--control);
+    }
+    .plain-note-editor:hover:not(:focus) {
+      background: #ffffff02;
+    }
+  }
+  @media (max-width: 760px) {
+    .post-page.note-workflow,
+    .post-page.note-workflow.with-source {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .note-workflow .source-drawer {
+      position: static;
+      display: grid;
+      grid-template-rows: 1fr;
+      height: auto;
+      transition: grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    .note-workflow .source-drawer[data-open="false"] {
+      grid-template-rows: 0fr;
+    }
+    .note-workflow .article-pane {
+      min-height: 0;
+      height: 65svh;
+    }
+    .note-filters {
+      gap: 11px;
+    }
+  }
+}
+html[data-input="keyboard"] .routed-shell [data-slot="sidebar-container"],
+html[data-input="keyboard"] .routed-shell [data-slot="sidebar-gap"],
+html[data-input="keyboard"] .post-page.note-workflow,
+html[data-input="keyboard"] .article-pane {
+  transition: none;
+}
+html[data-input="keyboard"] .note-menu,
+html[data-input="keyboard"] .sheet-panel,
+html[data-input="keyboard"] .sheet-backdrop {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .routed-shell [data-slot="sidebar-container"],
+  .routed-shell [data-slot="sidebar-gap"],
+  .post-page.note-workflow,
+  .source-drawer,
+  .article-pane {
+    transition: none;
+  }
+  .note-menu,
+  .sheet-panel,
+  .sheet-backdrop,
+  mark[data-source-highlight] {
+    animation: none;
+  }
+}

@@ -26,6 +26,7 @@ if (process.env.SUBSTUFF_QA_DATABASE !== "true")
 const created: string[] = [];
 const originalFetch = globalThis.fetch;
 let calls = 0;
+let expectNoAttachment = false;
 let unknown = false;
 let stage = "setup";
 const content =
@@ -51,11 +52,14 @@ globalThis.fetch = (async (input, options) => {
     const body = JSON.parse(String(options?.body));
     assert.equal(body.variables.input.mode, "shareNow");
     assert.equal(body.variables.input.saveToDraft, false);
-    assert.ok(
-      body.variables.input.metadata.substack.linkAttachment.url.startsWith(
-        "https://qa-test.substack.com/p/",
-      ),
-    );
+    if (expectNoAttachment)
+      assert.equal(body.variables.input.metadata, undefined);
+    else
+      assert.ok(
+        body.variables.input.metadata.substack.linkAttachment.url.startsWith(
+          "https://qa-test.substack.com/p/",
+        ),
+      );
     assert.equal(body.variables.input.text.includes("https://"), false);
     if (unknown) throw new TypeError("QA simulated lost confirmation");
     return Response.json({
@@ -401,6 +405,63 @@ try {
   );
   assert.equal(limitedResult.state, "failed");
   assert.equal(modelCalls, 0);
+
+  stage = "per-Note card opt-out and permanent posted lock";
+  const optOut = await workspace(true);
+  const optJob = await enqueueImport(optOut, source);
+  expectNoAttachment = true;
+  const beforeOptOut = calls;
+  await runImportJob(
+    optJob.id,
+    dependencies({
+      send: async (input) => {
+        const [current] = await db()
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, input.workspaceId));
+        const document = structuredClone(current.document);
+        const note = document.articles
+          .find((article) => article.id === input.article.id)
+          ?.notes.find((note) => note.id === input.note.id);
+        if (!note) throw new Error("Missing QA Note");
+        note.includeArticle = false;
+        await db()
+          .update(workspaces)
+          .set({ document })
+          .where(eq(workspaces.id, input.workspaceId));
+        return sendNote({
+          ...input,
+          note: { ...input.note, includeArticle: false },
+        });
+      },
+    }),
+  );
+  expectNoAttachment = false;
+  assert.equal(calls, beforeOptOut + 1);
+  const [optReceipt] = await db()
+    .select()
+    .from(deliveries)
+    .where(eq(deliveries.workspaceId, optOut));
+  assert.equal(optReceipt.includeArticle, false);
+  assert.equal(optReceipt.attachmentUrl, null);
+  const [optDocument] = await db()
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, optOut));
+  const optArticle = optDocument.document.articles[0];
+  const existingPost = await sendNote({
+    workspaceId: optOut,
+    article: optArticle,
+    note: {
+      ...optArticle.notes[0],
+      text: "A new version cannot resend an already-posted Note.",
+    },
+    channelId: "qa-channel",
+    token: "qa-never-used",
+    mode: "now",
+  });
+  assert.equal(existingPost.id, optReceipt.id);
+  assert.equal(calls, beforeOptOut + 1);
 
   console.log(
     "PASS: real-database draft default, durable concurrent imports, immediate-send payload, duplicate prevention, consent-version isolation, opt-out, lost confirmation, feed baseline and explicit generation retry. External publishing was mocked; no creator account was enabled.",

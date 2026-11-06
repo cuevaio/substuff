@@ -5,14 +5,14 @@ One article → a few good Notes → a quick edit → an approved week.
 ## Journey
 
 1. **Start:** Continue with Buffer and connect a Substack channel. Add a publication link; first-run onboarding reads the latest post, analyzes its ideas/voice and writes unapproved suggestions. No guest/demo entry, article creation or pasted-article editor.
-2. **Review:** `/posts/[id]` shows compact WYSIWYG Notes beside a hideable, formatted original. No Note numbers. Autosave. Approve or skip. Restore changes.
-3. **Schedule:** select approved Notes and dates; `/schedule` provides list/calendar views with publishing timezone. The original article is a separate attached card, not body text. Buffer cannot preserve rich formatting, so formatted Notes need native rich copy or explicit plain-text conversion before Buffer sending. Immediate automation remains a separate explicit opt-in, never part of onboarding.
+2. **Review:** `/posts/[id]` shows compact plain-text Notes beside a hideable, formatted original. Source highlights the supporting passage. To approve is editable; Approved requires Edit; Posted is permanently read-only. Copy, restore and article-card preference live in the three-dot menu. No Note numbers. Autosave.
+3. **Schedule:** select approved Notes and dates; `/schedule` provides list/calendar views with publishing timezone and automatically reconciled status. The optional original article is a separate attached card, not body text. Editing a queued Note first requires confirmed cancellation. Immediate automation remains a separate explicit opt-in, never part of onboarding.
 4. **Return:** resume the last article and edits. Later, a connected feed brings the next article into the same workflow.
 
 ## Design
 
 - Mercury reference: onyx #171721, graphite #1e1e2a, ivory #ededf3, ash #c3c3cc, cobalt #5266eb.
-- Flat, spacious workspace. Dividers instead of cards inside cards. One page title and one primary action.
+- Flat, spacious workspace without Note/sidebar/header separators. One page title and one primary action. Phosphor Light icons; short interruptible pointer transitions, instant keyboard toggles and reduced-motion support.
 - Inter fallback: Mercury's Arcadia fonts are proprietary and not bundled.
 - Direct editing, visible focus, native undo, reduced-motion support, accessible dialogs and touch targets.
 - Emil design engineering skill is installed and applied. No decorative motion or dashboard metrics.
@@ -30,7 +30,7 @@ One article → a few good Notes → a quick edit → an approved week.
 - [x] Connected-feed discovery and safe daily background import. Initial backlog is opt-in; manual feed checks are available.
 - [x] Explicit opt-in for immediate public AI Notes, versioned consent, channel/count selection, bounded jobs, opt-out checks and duplicate-send ledger.
 - [x] Required Buffer sign-in and Substack channel, no demo entry point, streamed first-run content/style onboarding with real draft generation.
-- [x] Next.js page/layout routing, compact unnumbered WYSIWYG Notes, sanitized side-by-side original, attached article-card payloads and schedule list/calendar.
+- [x] Next.js page/layout routing, compact unnumbered plain-text Notes, three read/edit states, sanitized source highlighting, optional article cards and schedule list/calendar.
 - [ ] Source-change versioning, real-time feed ingestion and weekly review reminder.
 - [ ] Real creator pilot, integration QA, public deployment and two-minute contest demo.
 

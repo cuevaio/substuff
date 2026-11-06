@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { deliveries } from "@/db/schema";
+import { deliveries, workspaces } from "@/db/schema";
 import {
   accessToken,
   BufferError,
@@ -12,6 +12,7 @@ import {
 import { approvedVersion, deliveryInput, deliveryKey } from "@/lib/delivery";
 import { claimQuota } from "@/lib/generation-limit";
 import { canSendThroughBuffer, noteAttachment } from "@/lib/note-attachment";
+import { noteVersion } from "@/lib/note-state";
 import { digest, readSession, sameOrigin } from "@/lib/session";
 
 type Row = typeof deliveries.$inferSelect;
@@ -31,7 +32,10 @@ function receipt(row: Row) {
     channelId: row.channelId,
     bufferPostId: row.bufferPostId,
     dueAt: row.dueAt?.toISOString() ?? null,
-    hash: digest(row.text),
+    hash: digest(noteVersion(row)),
+    text: row.text,
+    includeArticle: row.includeArticle,
+    attachmentUrl: row.attachmentUrl,
     error: row.error,
   };
 }
@@ -174,6 +178,23 @@ export async function POST(request: Request) {
     const notes = input.notes.map((selected) =>
       approvedVersion(article, selected.id, selected.hash),
     );
+    const posted = await db()
+      .select({ noteId: deliveries.noteId })
+      .from(deliveries)
+      .where(
+        and(
+          eq(deliveries.workspaceId, workspace.id),
+          eq(deliveries.articleId, input.articleId),
+          eq(deliveries.status, "sent"),
+        ),
+      );
+    if (
+      notes.some((note) => note && posted.some((row) => row.noteId === note.id))
+    )
+      return NextResponse.json(
+        { error: "This Note is already posted and can’t be sent again." },
+        { status: 409 },
+      );
     if (notes.some((note) => !note))
       return NextResponse.json(
         {
@@ -186,7 +207,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Buffer publishes plain text only. Copy formatted Notes to Substack, or remove formatting before sending.",
+            "This is an older formatted draft. Choose Edit and approve it as plain text before sending.",
         },
         { status: 409 },
       );
@@ -230,7 +251,7 @@ export async function POST(request: Request) {
         channel.id,
         input.articleId,
         note.id,
-        note.text,
+        noteVersion(note),
       );
       const [claim] = await db()
         .insert(deliveries)
@@ -242,6 +263,9 @@ export async function POST(request: Request) {
           noteId: note.id,
           channelId: channel.id,
           text: note.text,
+          includeArticle: note.includeArticle !== false,
+          attachmentUrl:
+            note.includeArticle !== false ? article?.sourceUrl || null : null,
           mode: input.mode,
           dueAt: input.notes[index].dueAt
             ? new Date(input.notes[index].dueAt)
@@ -258,6 +282,25 @@ export async function POST(request: Request) {
         continue;
       }
       try {
+        const [fresh] = await db()
+          .select()
+          .from(workspaces)
+          .where(eq(workspaces.id, workspace.id));
+        const current = fresh?.document.articles
+          .find((item) => item.id === input.articleId)
+          ?.notes.find((item) => item.id === note.id);
+        if (!current?.approved || noteVersion(current) !== noteVersion(note)) {
+          const [cancelled] = await db()
+            .update(deliveries)
+            .set({
+              status: "cancelled",
+              error: "The Note changed before sending.",
+            })
+            .where(eq(deliveries.id, claim.id))
+            .returning();
+          results.push(receipt(cancelled));
+          continue;
+        }
         const inputPost = {
           channelId: channel.id,
           text: note.text,
@@ -269,7 +312,7 @@ export async function POST(request: Request) {
             : {}),
           aiAssisted: article?.mode === "ai",
           source: "substuff",
-          ...(article ? noteAttachment(article) : {}),
+          ...(article ? noteAttachment(article, note) : {}),
         };
         const { createPost } = await graphql<{
           createPost: {

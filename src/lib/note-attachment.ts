@@ -2,8 +2,11 @@ import type { Article, Note } from "./content";
 import { hasRichFormatting } from "./rich-text";
 import { parseSubstackUrl } from "./substack-url";
 
-export function noteAttachment(article: Pick<Article, "sourceUrl" | "title">) {
-  if (!article.sourceUrl) return {};
+export function noteAttachment(
+  article: Pick<Article, "sourceUrl" | "title">,
+  note?: Pick<Note, "includeArticle">,
+) {
+  if (!article.sourceUrl || note?.includeArticle === false) return {};
   return {
     metadata: {
       substack: {

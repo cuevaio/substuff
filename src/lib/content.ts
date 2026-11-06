@@ -45,6 +45,7 @@ export type Note = {
   source: string;
   approved: boolean;
   richText?: RichNode;
+  includeArticle?: boolean;
 };
 
 export type Article = {
@@ -92,6 +93,7 @@ export const workspaceSchema = z.object({
                 source: z.string().max(60000),
                 approved: z.boolean(),
                 richText: richDocumentSchema.optional(),
+                includeArticle: z.boolean().optional(),
               })
               .refine(
                 (note) =>

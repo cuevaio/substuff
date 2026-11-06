@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { deliveries } from "@/db/schema";
+import { deliveries, workspaces } from "@/db/schema";
 import { BufferError, graphql } from "./buffer";
 import type { Article, Note } from "./content";
 import { deliveryKey } from "./delivery";
 import { canSendThroughBuffer, noteAttachment } from "./note-attachment";
+import { noteVersion } from "./note-state";
 
 // Shared durable send boundary. Never replay a claim, even when confirmation is lost.
 export async function sendNote(input: {
@@ -18,9 +19,22 @@ export async function sendNote(input: {
   dueAt?: string;
 }) {
   const { workspaceId, article, note, channelId, token, mode, dueAt } = input;
+  const [posted] = await db()
+    .select()
+    .from(deliveries)
+    .where(
+      and(
+        eq(deliveries.workspaceId, workspaceId),
+        eq(deliveries.articleId, article.id),
+        eq(deliveries.noteId, note.id),
+        eq(deliveries.status, "sent"),
+      ),
+    )
+    .limit(1);
+  if (posted) return posted;
   if (!canSendThroughBuffer(note))
     throw new BufferError(
-      "Buffer publishes plain text only. Copy this formatted Note to Substack, or remove formatting before sending.",
+      "This is an older formatted draft. Choose Edit and approve it as plain text before sending.",
       409,
     );
   if (
@@ -35,7 +49,7 @@ export async function sendNote(input: {
     channelId,
     article.id,
     note.id,
-    note.text,
+    noteVersion(note),
   );
   const [claim] = await db()
     .insert(deliveries)
@@ -47,6 +61,9 @@ export async function sendNote(input: {
       noteId: note.id,
       channelId,
       text: note.text,
+      includeArticle: note.includeArticle !== false,
+      attachmentUrl:
+        note.includeArticle !== false ? article.sourceUrl || null : null,
       mode,
       dueAt: dueAt ? new Date(dueAt) : null,
     })
@@ -60,6 +77,21 @@ export async function sendNote(input: {
     return existing;
   }
   try {
+    const [fresh] = await db()
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId));
+    const current = fresh?.document.articles
+      .find((item) => item.id === article.id)
+      ?.notes.find((item) => item.id === note.id);
+    if (!current?.approved || noteVersion(current) !== noteVersion(note)) {
+      const [cancelled] = await db()
+        .update(deliveries)
+        .set({ status: "cancelled", error: "The Note changed before sending." })
+        .where(eq(deliveries.id, claim.id))
+        .returning();
+      return cancelled;
+    }
     const postInput = {
       channelId,
       text: note.text,
@@ -74,7 +106,7 @@ export async function sendNote(input: {
       ...(mode === "schedule" ? { dueAt } : {}),
       aiAssisted: article.mode === "ai",
       source: "substuff",
-      ...noteAttachment(article),
+      ...noteAttachment(article, note),
     };
     const { createPost } = await graphql<{
       createPost: {

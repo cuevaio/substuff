@@ -1,7 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useRef } from "react";
+import { X } from "@/components/icons";
 import {
   DialogContent,
   DialogTitle,

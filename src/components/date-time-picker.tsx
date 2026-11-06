@@ -1,7 +1,7 @@
 "use client";
 
-import { CalendarDays, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { CalendarDays, ChevronDown } from "@/components/icons";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {

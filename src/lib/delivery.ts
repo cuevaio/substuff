@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Article } from "./content";
+import { noteVersion } from "./note-state";
 import { validSchedule } from "./schedule";
 import { digest } from "./session";
 
@@ -60,7 +61,7 @@ export function approvedVersion(
   return note?.approved &&
     note.text.trim() &&
     note.text.length <= 10000 &&
-    digest(note.text) === hash
+    digest(noteVersion(note)) === hash
     ? note
     : null;
 }
@@ -77,4 +78,7 @@ export type DeliveryReceipt = {
   hash: string;
   error: string | null;
   externalLink?: string | null;
+  text?: string;
+  attachmentUrl?: string | null;
+  includeArticle?: boolean;
 };

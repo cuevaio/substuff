@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { Brand } from "@/components/brand";
+import { ArrowRight, Check, LoaderCircle } from "@/components/icons";
 import { SignOutButton } from "@/components/publication-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

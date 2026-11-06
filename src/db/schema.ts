@@ -99,6 +99,8 @@ export const deliveries = pgTable(
     noteId: text("note_id").notNull(),
     channelId: text("channel_id").notNull(),
     text: text("text").notNull(),
+    includeArticle: boolean("include_article").notNull().default(true),
+    attachmentUrl: text("attachment_url"),
     mode: text("mode").notNull(),
     status: text("status").notNull().default("creating"),
     bufferPostId: text("buffer_post_id"),

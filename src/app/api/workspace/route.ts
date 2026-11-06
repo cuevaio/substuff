@@ -1,10 +1,11 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { importJobs, workspaces } from "@/db/schema";
+import { deliveries, importJobs, workspaces } from "@/db/schema";
 import { readAccountSession as readSession } from "@/lib/account-session";
 import { workspaceSchema } from "@/lib/content";
+import { noteChanged, noteUpdateError } from "@/lib/note-state";
 import { sameOrigin } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -75,6 +76,16 @@ export async function PUT(request: Request) {
         { error: "Continue with Buffer to open your workspace." },
         { status: 401, headers },
       );
+    const receipts = await db()
+      .select()
+      .from(deliveries)
+      .where(eq(deliveries.workspaceId, workspace.id));
+    const error = noteUpdateError(
+      workspace.document.articles,
+      input.data.document.articles,
+      receipts,
+    );
+    if (error) return NextResponse.json({ error }, { status: 409, headers });
     if (
       input.data.revision === workspace.revision &&
       workspace.document.articles.length > 0 &&
@@ -104,6 +115,17 @@ export async function PUT(request: Request) {
         and(
           eq(workspaces.id, workspace.id),
           eq(workspaces.revision, input.data.revision),
+          ...workspace.document.articles.flatMap((article) =>
+            article.notes.flatMap((note) => {
+              const next = input.data.document.articles
+                .find((item) => item.id === article.id)
+                ?.notes.find((item) => item.id === note.id);
+              if (!next || !noteChanged(note, next)) return [];
+              return [
+                sql`not exists (select 1 from ${deliveries} where ${deliveries.workspaceId} = ${workspace.id} and ${deliveries.articleId} = ${article.id} and ${deliveries.noteId} = ${note.id} and (${deliveries.status} in ('sent', 'scheduled', 'draft', 'sending', 'creating', 'unknown', 'needs_approval') or (${deliveries.status} = 'error' and ${deliveries.bufferPostId} is not null)))`,
+              ];
+            }),
+          ),
         ),
       )
       .returning({ revision: workspaces.revision });

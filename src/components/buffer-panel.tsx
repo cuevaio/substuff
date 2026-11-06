@@ -1,15 +1,14 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { DateTimePicker, localDateTime } from "@/components/date-time-picker";
 import {
   ArrowUpRight,
   Check,
   ChevronDown,
   LoaderCircle,
-  RotateCcw,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { DateTimePicker, localDateTime } from "@/components/date-time-picker";
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -19,8 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BufferChannel } from "@/lib/buffer";
+import { deliveryQuery } from "@/lib/client-deliveries";
 import type { Article } from "@/lib/content";
 import type { DeliveryReceipt } from "@/lib/delivery";
+import { noteState, noteVersion } from "@/lib/note-state";
 import { hasRichFormatting } from "@/lib/rich-text";
 import { validScheduleBatch } from "@/lib/schedule";
 
@@ -75,7 +76,7 @@ function statusLabel(status: string) {
         draft: "Draft",
         scheduled: "Scheduled",
         sending: "Publishing",
-        sent: "Published",
+        sent: "Posted",
         error: "Needs attention",
         creating: "Confirming…",
         unknown: "Check Buffer",
@@ -105,7 +106,11 @@ export function BufferPanel({
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [hashes, setHashes] = useState<Record<string, string>>({});
-  const notes = article.notes.filter((note) => note.approved);
+  const history = useQuery(deliveryQuery(article.id));
+  const receipts = history.data?.deliveries ?? [];
+  const notes = article.notes.filter(
+    (note) => note.approved && noteState(note, receipts) !== "posted",
+  );
   const formatted = notes.some((note) => hasRichFormatting(note.richText));
   const channels = connection.data?.channels ?? [];
   const channelId =
@@ -120,19 +125,6 @@ export function BufferPanel({
     : [];
   const scheduleValid = validScheduleBatch(schedule);
   const historyKey = ["buffer-deliveries", article.id];
-  const history = useQuery({
-    queryKey: historyKey,
-    queryFn: async () => {
-      const response = await fetch(
-        `/api/buffer/deliveries?articleId=${encodeURIComponent(article.id)}`,
-      );
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Couldn’t load activity.");
-      return data as { deliveries: DeliveryReceipt[]; warning?: string };
-    },
-  });
-  const receipts = history.data?.deliveries ?? [];
   const matchingReceipts = notes.map((note) =>
     receipts.find(
       (receipt) =>
@@ -147,7 +139,7 @@ export function BufferPanel({
     let active = true;
     void Promise.all(
       article.notes.map(
-        async (note) => [note.id, await textHash(note.text)] as const,
+        async (note) => [note.id, await textHash(noteVersion(note))] as const,
       ),
     ).then((entries) => {
       if (active) setHashes(Object.fromEntries(entries));
@@ -167,31 +159,11 @@ export function BufferPanel({
       setBusy(false);
     }
   }
-  async function refresh() {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `/api/buffer/deliveries?articleId=${encodeURIComponent(article.id)}&sync=true`,
-      );
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Couldn’t refresh activity.");
-      client.setQueryData(historyKey, data);
-      if (data.warning) setError(data.warning);
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Couldn’t refresh activity.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   async function send() {
     if (busy || sent || recorded) return;
     if (formatted) {
       setError(
-        "Buffer only publishes plain text. Copy formatted Notes to Substack, or remove formatting before sending.",
+        "This is an older formatted draft. Choose Edit and approve it as plain text before sending.",
       );
       return;
     }
@@ -206,7 +178,7 @@ export function BufferPanel({
       const selected = await Promise.all(
         notes.map(async (note, index) => ({
           id: note.id,
-          hash: await textHash(note.text),
+          hash: await textHash(noteVersion(note)),
           ...(mode === "schedule"
             ? { dueAt: schedule[index].toISOString() }
             : {}),
@@ -271,16 +243,17 @@ export function BufferPanel({
 
   return (
     <div className="buffer-panel">
-      {article.sourceUrl && (
-        <p className="input-caption">
-          The original article is attached as a preview card, not added to the
-          Note text.
-        </p>
-      )}
+      {article.sourceUrl &&
+        notes.some((note) => note.includeArticle !== false) && (
+          <p className="input-caption">
+            The original article is attached as a preview card, not added to the
+            Note text.
+          </p>
+        )}
       {formatted && (
         <p className="inline-error" role="alert">
-          Buffer only publishes plain text. Your formatting is saved; copy these
-          Notes to Substack, or remove formatting in the editor before sending.
+          This is an older formatted draft. Choose Edit and approve it as plain
+          text before sending.
         </p>
       )}
       {(error || connection.error || connection.data?.error) && (
@@ -333,7 +306,7 @@ export function BufferPanel({
             className="text-button"
             onClick={() => void connection.refetch()}
           >
-            Refresh
+            Check connection
           </button>
         </p>
       ) : sent ? (
@@ -353,7 +326,7 @@ export function BufferPanel({
         <>
           <p className="dialog-description">
             {matchingReceipts.every((receipt) => receipt?.status === "sent")
-              ? "Already published."
+              ? "Already posted."
               : matchingReceipts.every(
                     (receipt) => receipt?.status === "cancelled",
                   )
@@ -538,18 +511,6 @@ export function BufferPanel({
             Activity
             <ChevronDown size={14} />
           </summary>
-          <div className="history-heading">
-            <span />{" "}
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Refresh activity"
-              disabled={busy}
-              onClick={refresh}
-            >
-              <RotateCcw size={14} />
-            </button>
-          </div>
           {receipts.map((receipt) => (
             <div className="delivery-row" key={receipt.id}>
               <div>

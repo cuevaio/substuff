@@ -4,17 +4,16 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { connectionQuery } from "@/components/buffer-panel";
+import { Dialog } from "@/components/dialog";
 import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   List,
-  RefreshCw,
-} from "lucide-react";
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { connectionQuery } from "@/components/buffer-panel";
-import { Dialog } from "@/components/dialog";
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { activeDelivery, dateKey, monthDays } from "@/lib/calendar";
 
@@ -32,7 +31,7 @@ type Item = {
   error: string | null;
 };
 const labels: Record<string, string> = {
-  sent: "Published",
+  sent: "Posted",
   scheduled: "Scheduled",
   draft: "Draft",
   sending: "Publishing",
@@ -68,8 +67,22 @@ export function SchedulePage({ view }: { view: "list" | "calendar" }) {
     }
   }, [connection.data]);
   const [selected, setSelected] = useState<Item | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const sync = useQuery({
+    queryKey: ["schedule-sync"],
+    queryFn: async () => {
+      const response = await fetch("/api/buffer/deliveries?sync=true");
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Statuses couldn’t be checked.");
+      return { warning: data.warning as string | null, checkedAt: Date.now() };
+    },
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+  useEffect(() => {
+    if (sync.data?.checkedAt)
+      void client.invalidateQueries({ queryKey: ["schedule"] });
+  }, [client, sync.data?.checkedAt]);
   const query = useInfiniteQuery({
     queryKey: ["schedule"],
     initialPageParam: 0,
@@ -96,23 +109,6 @@ export function SchedulePage({ view }: { view: "list" | "calendar" }) {
   const unscheduled = items.filter((item) => !item.dueAt);
   const days = monthDays(month.year, month.month);
   const today = dateKey(new Date(), zone);
-  async function refresh() {
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch("/api/buffer/deliveries?sync=true");
-      const data = await response.json();
-      if (!response.ok || data.warning)
-        throw new Error(
-          data.error || data.warning || "Couldn’t refresh statuses.",
-        );
-      await client.invalidateQueries({ queryKey: ["schedule"] });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Couldn’t refresh.");
-    } finally {
-      setBusy(false);
-    }
-  }
   const card = (item: Item) => (
     <button
       type="button"
@@ -160,22 +156,18 @@ export function SchedulePage({ view }: { view: "list" | "calendar" }) {
             Calendar
           </Link>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Refresh schedule"
-          disabled={busy}
-          onClick={() => void refresh()}
-        >
-          <RefreshCw size={16} />
-        </button>
       </header>
       <p className="input-caption">
         Notes sent through substuff · {zone} · last confirmed Buffer status
       </p>
-      {(error || query.error) && (
+      {(sync.error || query.error) && (
         <p className="inline-error" role="alert">
-          {error || query.error?.message}
+          {sync.error?.message || query.error?.message}
+        </p>
+      )}
+      {sync.data?.warning && (
+        <p className="input-caption" role="status">
+          {sync.data.warning}
         </p>
       )}
       {query.isPending && <p role="status">Loading your schedule…</p>}

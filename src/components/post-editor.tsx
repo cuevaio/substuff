@@ -1,29 +1,42 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowUpRight,
-  Check,
-  Copy,
-  FileText,
-  PanelRightClose,
-  PanelRightOpen,
-  RotateCcw,
-} from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { DropdownMenu } from "radix-ui";
+import { useEffect, useRef, useState } from "react";
 import { BufferPanel } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
+import {
+  ArrowUpRight,
+  ArticleLink,
+  Check,
+  Copy,
+  Edit,
+  FileText,
+  More,
+  PanelRightClose,
+  PanelRightOpen,
+  Posted,
+  RotateCcw,
+} from "@/components/icons";
 import { NoteEditor } from "@/components/note-editor";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/workspace-provider";
+import { deliveryQuery } from "@/lib/client-deliveries";
 import { type Article, exportNotes, type Note } from "@/lib/content";
-import {
-  hasRichFormatting,
-  plainDocument,
-  richTextHtml,
-} from "@/lib/rich-text";
+import { lockedDelivery, noteState } from "@/lib/note-state";
+import { highlightSource, scrollToSource } from "@/lib/source-match";
 
-function SourcePane({ article }: { article: Article }) {
+type Source = { noteId: string; text: string; nonce: number };
+function SourcePane({
+  article,
+  source,
+}: {
+  article: Article;
+  source: Source | null;
+}) {
+  const root = useRef<HTMLDivElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  const [savedSource, setSavedSource] = useState(false);
   const query = useQuery({
     queryKey: ["formatted-source", article.id],
     queryFn: async () => {
@@ -38,47 +51,58 @@ function SourcePane({ article }: { article: Article }) {
     staleTime: 300000,
     retry: false,
   });
+  useEffect(() => {
+    if (!root.current || !source) return;
+    const found = highlightSource(root.current, source.text);
+    if (!found && query.data?.html && !savedSource) {
+      setSavedSource(true);
+      return;
+    }
+    if (found && scroll.current) scrollToSource(scroll.current);
+  }, [source, query.data, savedSource]);
   return (
-    <aside className="article-pane" aria-label="Original Substack post">
+    <aside
+      id="original-post"
+      className="article-pane"
+      aria-label="Original Substack post"
+    >
       <header>
         <span>Original post</span>
         {article.sourceUrl && (
           <a
             href={article.sourceUrl}
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="icon-button"
             aria-label="Read on Substack"
           >
-            <ArrowUpRight size={15} />
+            <ArrowUpRight size={16} />
           </a>
         )}
       </header>
-      <div className="article-scroll">
+      <div className="article-scroll" ref={scroll}>
         <h2>{article.title}</h2>
         {query.isPending && (
           <p className="input-caption" role="status">
             Loading formatted post…
           </p>
         )}
-        {query.error && (
+        {(query.error || query.data?.warning || savedSource) && (
           <p className="input-caption" role="status">
-            {query.error.message}
+            {query.error?.message ||
+              query.data?.warning ||
+              "Showing the saved original to highlight the exact source passage."}
           </p>
         )}
-        {query.data?.warning && (
-          <p className="input-caption" role="status">
-            {query.data.warning}
-          </p>
-        )}
-        {query.data?.html ? (
+        {query.data?.html && !savedSource ? (
           <div
+            ref={root}
             className="article-prose"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Authenticated endpoint always sanitizes with a restrictive HTML allowlist.
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: The authenticated source endpoint always sanitizes HTML with a restrictive allowlist.
             dangerouslySetInnerHTML={{ __html: query.data.html }}
           />
         ) : (
-          <div className="article-prose">
+          <div ref={root} className="article-prose">
             {article.content.split(/\n\s*\n/).map((paragraph, index) => (
               <p key={index}>{paragraph}</p>
             ))}
@@ -91,15 +115,19 @@ function SourcePane({ article }: { article: Article }) {
 
 export function PostEditor({ articleId }: { articleId: string }) {
   const workspace = useWorkspace();
+  const client = useQueryClient();
   const article = workspace.document.articles.find(
     (article) => article.id === articleId,
   );
+  const history = useQuery(deliveryQuery(articleId));
+  const receipts = history.data?.deliveries || [];
   const [sourceVisible, setSourceVisible] = useState(true);
-  const [approvedOnly, setApprovedOnly] = useState(false);
-  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [filter, setFilter] = useState("all");
+  const [source, setSource] = useState<Source | null>(null);
   const [review, setReview] = useState(false);
   const [restore, setRestore] = useState<Note | null>(null);
-  const [plainNote, setPlainNote] = useState<Note | null>(null);
+  const [editing, setEditing] = useState<Note | null>(null);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   useEffect(() => {
     workspace.setActive(articleId);
@@ -114,42 +142,31 @@ export function PostEditor({ articleId }: { articleId: string }) {
         <Link href="/import">Import a post</Link>
       </main>
     );
-  const approved = article.notes.filter((note) => note.approved);
+  const approved = article.notes.filter(
+    (note) => noteState(note, receipts) === "approved",
+  );
+  const reviewArticle = {
+    ...article,
+    notes: article.notes.filter(
+      (note) => noteState(note, receipts) !== "posted",
+    ),
+  };
   function update(note: Note, changes: Partial<Note>) {
     workspace.updateNote(articleId, note.id, changes);
   }
-  async function copy(note: Note) {
+  async function copy(text: string) {
     try {
-      if (
-        note.richText &&
-        hasRichFormatting(note.richText) &&
-        typeof ClipboardItem !== "undefined"
-      )
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([richTextHtml(note.richText)], {
-              type: "text/html",
-            }),
-            "text/plain": new Blob([note.text], { type: "text/plain" }),
-          }),
-        ]);
-      else if (hasRichFormatting(note.richText)) {
-        setNotice(
-          "Formatted clipboard isn’t available in this browser. Select the Note and copy it directly to preserve formatting.",
-        );
-        return;
-      } else await navigator.clipboard.writeText(note.text);
+      await navigator.clipboard.writeText(text);
       setNotice("Copied");
     } catch {
       setNotice(
-        "Select the Note and copy it directly; clipboard access is unavailable.",
+        "Clipboard unavailable. Select the Note text and copy it directly.",
       );
     }
   }
   function download() {
-    if (!article) return;
     const url = URL.createObjectURL(
-      new Blob([exportNotes(article)], { type: "text/plain" }),
+      new Blob([exportNotes(reviewArticle)], { type: "text/plain" }),
     );
     const link = document.createElement("a");
     link.href = url;
@@ -157,10 +174,94 @@ export function PostEditor({ articleId }: { articleId: string }) {
     link.click();
     URL.revokeObjectURL(url);
   }
+  function requestEdit(note: Note) {
+    const own = receipts.filter((receipt) => receipt.noteId === note.id);
+    if (
+      own.some(
+        (receipt) =>
+          ["sent", "sending", "unknown", "creating"].includes(receipt.status) ||
+          (lockedDelivery(receipt.status) && !receipt.bufferPostId),
+      )
+    ) {
+      setNotice(
+        "This Note is posted or may be publishing. Check its status in Buffer before making changes.",
+      );
+      return;
+    }
+    if (
+      own.some(
+        (receipt) =>
+          receipt.bufferPostId &&
+          ["scheduled", "draft", "needs_approval", "error"].includes(
+            receipt.status,
+          ),
+      )
+    ) {
+      setEditing(note);
+      return;
+    }
+    update(note, { approved: false, richText: undefined });
+  }
+  async function cancelAndEdit() {
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await workspace.flush();
+      for (const receipt of receipts.filter(
+        (receipt) =>
+          receipt.noteId === editing.id &&
+          receipt.bufferPostId &&
+          ["scheduled", "draft", "needs_approval", "error"].includes(
+            receipt.status,
+          ),
+      )) {
+        const response = await fetch(
+          `/api/buffer/deliveries/${encodeURIComponent(receipt.id)}`,
+          { method: "DELETE" },
+        );
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(
+            data.error ||
+              "Couldn’t confirm cancellation. Check Buffer before editing.",
+          );
+      }
+      const fresh = await history.refetch();
+      if (
+        fresh.error ||
+        fresh.data?.deliveries.some(
+          (receipt) =>
+            receipt.noteId === editing.id &&
+            (lockedDelivery(receipt.status) ||
+              (receipt.status === "error" && Boolean(receipt.bufferPostId))),
+        )
+      )
+        throw new Error(
+          "This Note may already be posted. Its text remains read-only.",
+        );
+      update(editing, { approved: false, richText: undefined });
+      setEditing(null);
+      await client.invalidateQueries({ queryKey: ["schedule"] });
+    } catch (cause) {
+      setNotice(
+        cause instanceof Error ? cause.message : "Couldn’t unlock this Note.",
+      );
+      await history.refetch();
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <main
       id="main"
-      className={`post-page ${sourceVisible ? "with-source" : ""}`}
+      className={`post-page note-workflow ${sourceVisible ? "with-source" : ""}`}
+      onTransitionEnd={(event) => {
+        if (event.target === event.currentTarget && sourceVisible) {
+          const pane =
+            event.currentTarget.querySelector<HTMLElement>(".article-scroll");
+          if (pane && source) scrollToSource(pane);
+        }
+      }}
     >
       <section className="notes-pane" aria-label="Notes">
         <header className="post-heading">
@@ -175,6 +276,7 @@ export function PostEditor({ articleId }: { articleId: string }) {
               sourceVisible ? "Hide original post" : "Show original post"
             }
             aria-expanded={sourceVisible}
+            aria-controls="original-post"
             onClick={() => {
               setSourceVisible(!sourceVisible);
               localStorage.setItem(
@@ -191,128 +293,261 @@ export function PostEditor({ articleId }: { articleId: string }) {
           </button>
         </header>
         <div className="notes-controls">
-          <button
-            type="button"
-            className="text-button"
-            aria-pressed={approvedOnly}
-            onClick={() => setApprovedOnly(!approvedOnly)}
-          >
-            {approvedOnly ? "Approved only" : "All Notes"}
-          </button>
-          <span>{approved.length} approved</span>
+          <fieldset className="note-filters" aria-label="Filter Notes">
+            {[
+              ["all", "All"],
+              ["to-approve", "To approve"],
+              ["approved", "Approved"],
+              ["posted", "Posted"],
+            ].map(([value, label]) => (
+              <button
+                type="button"
+                className="text-button"
+                key={value}
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </fieldset>
         </div>
+        {history.error && (
+          <p className="inline-error" role="alert">
+            {history.error.message}{" "}
+            <button type="button" onClick={() => void history.refetch()}>
+              Try again
+            </button>
+          </p>
+        )}
         <div className="compact-notes">
           {article.notes
-            .filter((note) => !approvedOnly || note.approved)
-            .map((note) => (
-              <article className="compact-note" key={note.id}>
-                <NoteEditor
-                  note={note}
-                  onChange={(changes) =>
-                    update(note, { ...changes, approved: false })
-                  }
-                />
-                {article.sourceUrl && (
-                  <a
-                    className="note-article-card"
-                    href={article.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FileText size={16} />
-                    <span>
-                      {article.title}
-                      <small>{new URL(article.sourceUrl).hostname}</small>
-                    </span>
-                    <ArrowUpRight size={14} />
-                  </a>
-                )}
-                {hasRichFormatting(note.richText) && (
-                  <p className="format-warning">
-                    Formatting is saved here. Copy to Substack to keep it;
-                    Buffer only publishes plain text.{" "}
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => setPlainNote(note)}
-                    >
-                      Use plain text
-                    </button>
-                  </p>
-                )}
-                <div className="compact-note-tools">
-                  <button
-                    type="button"
-                    className="text-button"
-                    aria-expanded={sourceId === note.id}
-                    onClick={() =>
-                      setSourceId(sourceId === note.id ? null : note.id)
-                    }
-                  >
-                    Source
-                  </button>
-                  <div>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label="Copy Note"
-                      title="Copy Note"
-                      onClick={() => void copy(note)}
-                    >
-                      <Copy size={14} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label="Restore original Note"
-                      title="Restore original Note"
-                      disabled={
-                        note.text === note.original &&
-                        !hasRichFormatting(note.richText)
+            .filter(
+              (note) =>
+                filter === "all" || noteState(note, receipts) === filter,
+            )
+            .map((note) => {
+              const state = noteState(note, receipts);
+              const own = receipts.filter(
+                (receipt) => receipt.noteId === note.id,
+              );
+              const posted = own.find((receipt) => receipt.status === "sent");
+              const text = posted?.text ?? note.text;
+              const readOnly = state !== "to-approve" || !history.data;
+              const attached =
+                state === "posted"
+                  ? Boolean(posted?.attachmentUrl)
+                  : note.includeArticle !== false && Boolean(article.sourceUrl);
+              const cardUrl =
+                state === "posted" ? posted?.attachmentUrl : article.sourceUrl;
+              return (
+                <article
+                  className="compact-note"
+                  key={note.id}
+                  data-note-state={state}
+                >
+                  {readOnly ? (
+                    <p className="note-readonly">{text}</p>
+                  ) : (
+                    <NoteEditor
+                      note={note}
+                      onChange={(changes) =>
+                        update(note, { ...changes, approved: false })
                       }
-                      onClick={() => setRestore(note)}
+                    />
+                  )}
+                  {attached && cardUrl && (
+                    <a
+                      className="note-article-card"
+                      href={cardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
-                      <RotateCcw size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`approve-button ${note.approved ? "approved" : ""}`}
-                      disabled={!note.text.trim() || note.text.length > 10000}
-                      aria-pressed={note.approved}
-                      onClick={() => update(note, { approved: !note.approved })}
-                    >
-                      <Check size={13} />
-                      {note.approved ? "Approved" : "Approve"}
-                    </button>
+                      <FileText size={16} />
+                      <span>
+                        {article.title}
+                        <small>{new URL(cardUrl).hostname}</small>
+                      </span>
+                      <ArrowUpRight size={14} />
+                    </a>
+                  )}
+                  <div className="compact-note-tools">
+                    <div>
+                      <span className={`note-state state-${state}`}>
+                        {state === "posted" ? (
+                          <Posted size={14} />
+                        ) : state === "approved" ? (
+                          <Check size={14} />
+                        ) : null}
+                        {state === "posted"
+                          ? "Posted"
+                          : state === "approved"
+                            ? "Approved"
+                            : "To approve"}
+                      </span>
+                      <button
+                        type="button"
+                        className="source-action text-button"
+                        aria-controls="original-post"
+                        aria-pressed={source?.noteId === note.id}
+                        onClick={() => {
+                          setSourceVisible(true);
+                          localStorage.setItem(
+                            "substuff.source-hidden",
+                            "false",
+                          );
+                          setSource({
+                            noteId: note.id,
+                            text: note.source,
+                            nonce: Date.now(),
+                          });
+                        }}
+                      >
+                        Source <ArrowUpRight size={12} />
+                      </button>
+                    </div>
+                    <div>
+                      {state === "to-approve" && (
+                        <button
+                          type="button"
+                          className="approve-button"
+                          disabled={
+                            !history.data ||
+                            !note.text.trim() ||
+                            note.text.length > 10000
+                          }
+                          onClick={() =>
+                            update(note, {
+                              approved: true,
+                              richText: undefined,
+                            })
+                          }
+                        >
+                          <Check size={14} />
+                          Approve
+                        </button>
+                      )}
+                      {state === "approved" && (
+                        <button
+                          type="button"
+                          className="text-button edit-note-button"
+                          disabled={!history.data}
+                          onClick={() => requestEdit(note)}
+                        >
+                          <Edit size={14} />
+                          Edit
+                        </button>
+                      )}
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label="More Note options"
+                          >
+                            <More size={20} />
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            className="note-menu"
+                            sideOffset={6}
+                            align="end"
+                          >
+                            <DropdownMenu.Item
+                              className="note-menu-item"
+                              onSelect={() => void copy(text)}
+                            >
+                              <Copy size={15} />
+                              Copy text
+                            </DropdownMenu.Item>
+                            {state === "to-approve" && (
+                              <DropdownMenu.Item
+                                className="note-menu-item"
+                                disabled={
+                                  note.text === note.original || !history.data
+                                }
+                                onSelect={() => setRestore(note)}
+                              >
+                                <RotateCcw size={15} />
+                                Restore original
+                              </DropdownMenu.Item>
+                            )}
+                            {article.sourceUrl && state !== "posted" && (
+                              <DropdownMenu.CheckboxItem
+                                className="note-menu-item"
+                                disabled={readOnly}
+                                checked={note.includeArticle !== false}
+                                onCheckedChange={(checked) =>
+                                  update(note, {
+                                    includeArticle: checked,
+                                    approved: false,
+                                    richText: undefined,
+                                  })
+                                }
+                              >
+                                <ArticleLink size={15} />
+                                Include article card
+                                <DropdownMenu.ItemIndicator>
+                                  <Check size={13} />
+                                </DropdownMenu.ItemIndicator>
+                              </DropdownMenu.CheckboxItem>
+                            )}
+                            {own.some((receipt) => receipt.bufferPostId) && (
+                              <DropdownMenu.Item
+                                asChild
+                                className="note-menu-item"
+                              >
+                                <a
+                                  href={`https://publish.buffer.com/channels/${encodeURIComponent(own[0].channelId)}/schedule`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ArrowUpRight size={15} />
+                                  Open in Buffer
+                                </a>
+                              </DropdownMenu.Item>
+                            )}
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    </div>
                   </div>
-                </div>
-                {sourceId === note.id && (
-                  <blockquote className="source-passage">
-                    {note.source}
-                  </blockquote>
-                )}
-              </article>
-            ))}
-          {approvedOnly && !approved.length && (
-            <p className="empty-filter">No approved Notes yet.</p>
-          )}
+                </article>
+              );
+            })}
+          {!article.notes.some(
+            (note) => filter === "all" || noteState(note, receipts) === filter,
+          ) && <p className="empty-filter">No Notes in this state.</p>}
         </div>
         <footer className="post-review">
           <span>
             {approved.length
-              ? `${approved.length} ready to review`
+              ? `${approved.length} ready to share`
               : "Approve Notes to share"}
           </span>
-          <Button disabled={!approved.length} onClick={() => setReview(true)}>
+          <Button
+            disabled={!approved.length || !history.data}
+            onClick={() => setReview(true)}
+          >
             Review Notes
           </Button>
         </footer>
       </section>
-      {sourceVisible && <SourcePane article={article} />}
+      <div
+        className="source-drawer"
+        data-open={sourceVisible}
+        inert={!sourceVisible}
+        aria-hidden={!sourceVisible}
+      >
+        <div className="source-drawer-inner">
+          <SourcePane article={article} source={source} />
+        </div>
+      </div>
       {review && (
         <Dialog title="Share Notes" onClose={() => setReview(false)}>
           <BufferPanel
-            article={article}
+            article={reviewArticle}
             beforeSend={workspace.flush}
             onExport={download}
           />
@@ -321,7 +556,7 @@ export function PostEditor({ articleId }: { articleId: string }) {
       {restore && (
         <Dialog title="Restore this Note?" onClose={() => setRestore(null)}>
           <p className="dialog-description">
-            Replace your edits and formatting with the original draft?
+            Replace your edits with the original draft?
           </p>
           <div className="dialog-actions">
             <Button variant="secondary" onClick={() => setRestore(null)}>
@@ -331,7 +566,7 @@ export function PostEditor({ articleId }: { articleId: string }) {
               onClick={() => {
                 update(restore, {
                   text: restore.original,
-                  richText: plainDocument(restore.original),
+                  richText: undefined,
                   approved: false,
                 });
                 setRestore(null);
@@ -342,26 +577,28 @@ export function PostEditor({ articleId }: { articleId: string }) {
           </div>
         </Dialog>
       )}
-      {plainNote && (
-        <Dialog title="Use plain text?" onClose={() => setPlainNote(null)}>
+      {editing && (
+        <Dialog
+          title="Edit this Note?"
+          onClose={() => {
+            if (!busy) setEditing(null);
+          }}
+        >
           <p className="dialog-description">
-            Remove this Note’s formatting so Buffer can publish it? Its text
-            stays unchanged. You’ll need to approve it again.
+            Its existing Buffer copy must be cancelled first, so the older text
+            won’t publish while you edit. An in-flight publication may finish;
+            posted Notes can’t be edited.
           </p>
           <div className="dialog-actions">
-            <Button variant="secondary" onClick={() => setPlainNote(null)}>
-              Keep formatting
-            </Button>
             <Button
-              onClick={() => {
-                update(plainNote, {
-                  richText: plainDocument(plainNote.text),
-                  approved: false,
-                });
-                setPlainNote(null);
-              }}
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setEditing(null)}
             >
-              Remove formatting
+              Keep queued
+            </Button>
+            <Button disabled={busy} onClick={() => void cancelAndEdit()}>
+              Cancel copy & edit
             </Button>
           </div>
         </Dialog>

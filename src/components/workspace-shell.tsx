@@ -1,8 +1,8 @@
 "use client";
-import { Check } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Check } from "@/components/icons";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useWorkspace } from "@/components/workspace-provider";
 

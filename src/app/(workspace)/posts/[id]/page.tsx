@@ -11,5 +11,5 @@ export default async function Page({ params }: PageProps<"/posts/[id]">) {
     )
   )
     notFound();
-  return <PostEditor articleId={id} />;
+  return <PostEditor key={id} articleId={id} />;
 }

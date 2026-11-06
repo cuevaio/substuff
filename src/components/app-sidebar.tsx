@@ -1,9 +1,9 @@
 "use client";
 
-import { CalendarDays, FileText, Plus, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Brand } from "@/components/brand";
+import { CalendarDays, FileText, Plus, Settings2 } from "@/components/icons";
 import {
   Sidebar,
   SidebarContent,

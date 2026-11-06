@@ -1,5 +1,15 @@
 # Verification — November 6, 2026
 
+## Plain-text workflow follow-up (supersedes rich-editor behavior below)
+
+- Biome, 65 tests, typecheck, optimized build and isolated real-Neon automation fixtures passed. Fixtures verify opted-out payloads omit metadata, attachment snapshots stay null, stale approval fingerprints fail and already-posted Notes never resend. External publishing was mocked.
+- Additive migration `0004_magenta_marrow.sql` applied: delivery attachment preference and URL snapshots. Existing documents and delivery keys are preserved.
+- Local production build at `127.0.0.1:3101`: disposable account showed one editable To approve, two read-only Approved Notes with Edit, and a read-only Posted snapshot without Edit. Approved → Edit produced a textarea; reapproval returned it to read-only. Direct illegal posted update returned 409, “Posted Notes are read-only.”
+- Three-dot menu exposed Copy text, Restore original and Include article card. Disabling the card removed its preview; an independent workspace API read confirmed `includeArticle:false` after autosave. External article links had `_blank`; no contenteditable or refresh controls remained. Desktop measurements found no horizontal overflow or textarea clipping.
+- Source highlighted the exact saved passage in the original pane, with no hidden quote component. Unit coverage verifies cross-inline-markup and paragraph/whitespace ranges. The deliberately nonexistent fixture source exercised the saved-original fallback.
+- Screenshot capture remained blocked by “Screenshot needs a visible tab” despite focus. Animation-frame sampling timed out with the hidden desktop window. No new screenshot/pixel, mobile or measured animation acceptance is claimed. Queued-cancellation logic has server/unit coverage; this pass did not cancel a real remote copy or publish any Note.
+- Disposable fixture used a short-lived context-encrypted access-token copy only for read-only channel discovery. Synthetic receipts had no remote post IDs; no publishing/automation was enabled. The fixture root is deleted after checks.
+
 ## Passed locally
 
 - Bun unit suite: 35 tests covering source grounding, exact excerpts, duplicate removal, approved-only export, corrupt workspace validation, summary-voice guard, guest-token hashing, same-origin checks, bounded fallback, privacy-safe diagnostics, token encryption/context binding, exact approved delivery versions, shared browser/server scheduling boundaries, ambiguous GraphQL responses and safe published-post import.

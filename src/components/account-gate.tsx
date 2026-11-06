@@ -1,9 +1,9 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Brand, Mark } from "@/components/brand";
 import { connectBuffer, connectionQuery } from "@/components/buffer-panel";
+import { ArrowRight } from "@/components/icons";
 import { SignOutButton } from "@/components/publication-settings";
 import { Button } from "@/components/ui/button";
 import { hasSubstackChannel } from "@/lib/onboarding";
