@@ -50,7 +50,7 @@ Public generation is limited to ten attempts per UTC day per hashed IP, with a s
 
 Publishing requires exact server-approved text and a selected Substack channel. Public scheduling also requires explicit consent and valid future times. Samples can create private drafts only. Delivery keys prevent automatic resending of a recorded Note version, including uncertain requests. Editing here does not modify a version already in Buffer. Disconnecting Buffer does not cancel remote posts.
 
-**Not implemented:** feed/URL import, background article detection, standalone account authentication, billing. Production OAuth, private draft delivery, duplicate prevention and draft cancellation are verified; actual public scheduling/delivery and cross-browser recovery still require acceptance testing. See [QA.md](QA.md).
+**Not implemented:** feed/URL import, background article detection, standalone account authentication, billing. Production OAuth, private draft delivery, duplicate prevention, draft cancellation, induced token renewal, reconnect and one explicitly approved public scheduled delivery are verified. Cross-browser recovery and scheduled-post cancellation still require acceptance testing. See [QA.md](QA.md).
 
 ## Checks
 

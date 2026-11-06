@@ -16,8 +16,8 @@ Ignored local `artifacts/`: onboarding, desktop workspace, mobile workspace, and
 
 ## Not claimed
 
-- Feed ingestion, actual public publishing, subscriber outcomes, verified cross-browser account recovery, or comprehensive model evaluation.
-- Actual delivery of a scheduled Note or contest eligibility. Scheduling code is implemented, but no public Note has been scheduled or published during QA.
+- Feed ingestion, subscriber outcomes, verified cross-browser account recovery, or comprehensive model evaluation.
+- Broad publishing reliability or contest eligibility. One explicitly approved public Note completed actual scheduled delivery; this is not a reliability benchmark.
 - Physical-device testing, broad browser coverage, or completed security review.
 
 ## Production
@@ -46,3 +46,19 @@ Ignored local `artifacts/`: onboarding, desktop workspace, mobile workspace, and
 - Disconnected through Preferences confirmation. Independent database check found zero stored connections, one preserved account binding and the scheduled receipt intact. Reconnected through real OAuth consent; workspace and scheduled receipt returned. Cross-browser recovery is not implied by this same-browser reconnect test.
 - Reproduced a UI bug without submitting: a past date had native validity false while Schedule 1 Note remained enabled after consent. Moved the publishing-window rule into a credential-free shared module; review now disables invalid/partially invalid batches and rechecks immediately before sending. Added boundary and multi-Note regression tests.
 - Still untested: cancellation of a scheduled post, cross-browser workspace recovery and account-switch paths. Do not call these end-to-end verified based on the unit suite.
+
+## Scheduling-validation fix — `463ae7e`
+
+- Deployment `dpl_2HymKXxeVsAu8xQx6u8CsYVgfpQB` reached READY; GitHub Check run `42175138497` passed for exact SHA `463ae7ed3932af38da7cb65acd163186207dd9ff`.
+- Reproduced the same past-date case on production after reload: consent true, native date invalid, Schedule 1 Note disabled. Also checked a beyond-90-day date stays disabled after consent. No extra publishing request was submitted for either check.
+- `QA_ORIGIN=https://substuff.vercel.app bun scripts/verify-live.ts` passed again: actual Neon persistence, isolated guest cookies, origin protection, stale-revision rejection, malformed input and clearing only its own disposable workspace.
+- Optimized build, Biome, TypeScript and all 28 tests passed.
+
+## Actual public delivery — explicitly authorized
+
+- Exact approved text: “Testing substuff: turning an article into a few editable Notes, with explicit approval before anything is published.” No other Note was approved for public publication.
+- Buffer automatically moved the 01:36 America/Lima test from Queue to Sent. Queue count went from 1 to 0; Sent went from 3 to 4.
+- Independent authenticated Buffer API read returned `status: sent`, due time `2026-11-06T06:36:00.000Z`, and public link `https://substack.com/note/c-380126546`.
+- Followed Go to post in Buffer. Actual Substack page `https://substack.com/profile/304869265-anthony/note/c-380126546` opened; its title and rendered body contained the exact approved text.
+- Clicked Refresh status in substuff: UI changed to Published. Independent database read confirmed one `sent` receipt, one `cancelled` receipt and no remaining scheduled receipt. Ignored UI evidence: `artifacts/substuff-published-receipt.jpeg`.
+- Local ignored screenshot of the scheduled card: `artifacts/buffer-approved-scheduled-test.jpeg`. The public test Note was intentionally left published; deletion was not authorized.
