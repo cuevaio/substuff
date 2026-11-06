@@ -1,28 +1,21 @@
 "use client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
-import { BufferPanel } from "@/components/buffer-panel";
+import { BufferPanel, connectionQuery } from "@/components/buffer-panel";
 import { Dialog } from "@/components/dialog";
 import {
   ArrowUpRight,
-  ArticleLink,
-  Check,
-  Copy,
-  Edit,
-  FileText,
-  More,
   PanelRightClose,
   PanelRightOpen,
-  Posted,
-  RotateCcw,
 } from "@/components/icons";
-import { NoteEditor } from "@/components/note-editor";
+import { NoteCard } from "@/components/note-card";
 import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useWorkspace } from "@/components/workspace-provider";
 import { deliveryQuery } from "@/lib/client-deliveries";
 import { type Article, exportNotes, type Note } from "@/lib/content";
+import { noteProfile } from "@/lib/note-profile";
 import { lockedDelivery, noteState } from "@/lib/note-state";
 import { highlightSource, scrollToSource } from "@/lib/source-match";
 
@@ -120,6 +113,7 @@ export function PostEditor({ articleId }: { articleId: string }) {
     (article) => article.id === articleId,
   );
   const history = useQuery(deliveryQuery(articleId));
+  const connection = useQuery(connectionQuery);
   const receipts = history.data?.deliveries || [];
   const [sourceVisible, setSourceVisible] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -320,206 +314,52 @@ export function PostEditor({ articleId }: { articleId: string }) {
             </button>
           </p>
         )}
-        <div className="compact-notes">
-          {article.notes
-            .filter(
+        <TooltipProvider delayDuration={400} skipDelayDuration={300}>
+          <div className="compact-notes">
+            {article.notes
+              .filter(
+                (note) =>
+                  filter === "all" || noteState(note, receipts) === filter,
+              )
+              .map((note) => {
+                const own = receipts.filter(
+                  (receipt) => receipt.noteId === note.id,
+                );
+                return (
+                  <NoteCard
+                    key={note.id}
+                    article={article}
+                    note={note}
+                    receipts={own}
+                    ready={Boolean(history.data)}
+                    profile={noteProfile(
+                      connection.data?.channels || [],
+                      own.find((receipt) => receipt.status === "sent")
+                        ?.channelId ||
+                        own.find((receipt) => receipt.bufferPostId)?.channelId,
+                    )}
+                    onUpdate={(changes) => update(note, changes)}
+                    onCopy={(text) => void copy(text)}
+                    onEdit={() => requestEdit(note)}
+                    onRestore={() => setRestore(note)}
+                    onSource={() => {
+                      setSourceVisible(true);
+                      localStorage.setItem("substuff.source-hidden", "false");
+                      setSource({
+                        noteId: note.id,
+                        text: note.source,
+                        nonce: Date.now(),
+                      });
+                    }}
+                  />
+                );
+              })}
+            {!article.notes.some(
               (note) =>
                 filter === "all" || noteState(note, receipts) === filter,
-            )
-            .map((note) => {
-              const state = noteState(note, receipts);
-              const own = receipts.filter(
-                (receipt) => receipt.noteId === note.id,
-              );
-              const posted = own.find((receipt) => receipt.status === "sent");
-              const text = posted?.text ?? note.text;
-              const readOnly = state !== "to-approve" || !history.data;
-              const attached =
-                state === "posted"
-                  ? Boolean(posted?.attachmentUrl)
-                  : note.includeArticle !== false && Boolean(article.sourceUrl);
-              const cardUrl =
-                state === "posted" ? posted?.attachmentUrl : article.sourceUrl;
-              return (
-                <article
-                  className="compact-note"
-                  key={note.id}
-                  data-note-state={state}
-                >
-                  {readOnly ? (
-                    <p className="note-readonly">{text}</p>
-                  ) : (
-                    <NoteEditor
-                      note={note}
-                      onChange={(changes) =>
-                        update(note, { ...changes, approved: false })
-                      }
-                    />
-                  )}
-                  {attached && cardUrl && (
-                    <a
-                      className="note-article-card"
-                      href={cardUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <FileText size={16} />
-                      <span>
-                        {article.title}
-                        <small>{new URL(cardUrl).hostname}</small>
-                      </span>
-                      <ArrowUpRight size={14} />
-                    </a>
-                  )}
-                  <div className="compact-note-tools">
-                    <div>
-                      <span className={`note-state state-${state}`}>
-                        {state === "posted" ? (
-                          <Posted size={14} />
-                        ) : state === "approved" ? (
-                          <Check size={14} />
-                        ) : null}
-                        {state === "posted"
-                          ? "Posted"
-                          : state === "approved"
-                            ? "Approved"
-                            : "To approve"}
-                      </span>
-                      <button
-                        type="button"
-                        className="source-action text-button"
-                        aria-controls="original-post"
-                        aria-pressed={source?.noteId === note.id}
-                        onClick={() => {
-                          setSourceVisible(true);
-                          localStorage.setItem(
-                            "substuff.source-hidden",
-                            "false",
-                          );
-                          setSource({
-                            noteId: note.id,
-                            text: note.source,
-                            nonce: Date.now(),
-                          });
-                        }}
-                      >
-                        Source <ArrowUpRight size={12} />
-                      </button>
-                    </div>
-                    <div>
-                      {state === "to-approve" && (
-                        <button
-                          type="button"
-                          className="approve-button"
-                          disabled={
-                            !history.data ||
-                            !note.text.trim() ||
-                            note.text.length > 10000
-                          }
-                          onClick={() =>
-                            update(note, {
-                              approved: true,
-                              richText: undefined,
-                            })
-                          }
-                        >
-                          <Check size={14} />
-                          Approve
-                        </button>
-                      )}
-                      {state === "approved" && (
-                        <button
-                          type="button"
-                          className="text-button edit-note-button"
-                          disabled={!history.data}
-                          onClick={() => requestEdit(note)}
-                        >
-                          <Edit size={14} />
-                          Edit
-                        </button>
-                      )}
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="More Note options"
-                          >
-                            <More size={20} />
-                          </button>
-                        </DropdownMenu.Trigger>
-                        <DropdownMenu.Portal>
-                          <DropdownMenu.Content
-                            className="note-menu"
-                            sideOffset={6}
-                            align="end"
-                          >
-                            <DropdownMenu.Item
-                              className="note-menu-item"
-                              onSelect={() => void copy(text)}
-                            >
-                              <Copy size={15} />
-                              Copy text
-                            </DropdownMenu.Item>
-                            {state === "to-approve" && (
-                              <DropdownMenu.Item
-                                className="note-menu-item"
-                                disabled={
-                                  note.text === note.original || !history.data
-                                }
-                                onSelect={() => setRestore(note)}
-                              >
-                                <RotateCcw size={15} />
-                                Restore original
-                              </DropdownMenu.Item>
-                            )}
-                            {article.sourceUrl && state !== "posted" && (
-                              <DropdownMenu.CheckboxItem
-                                className="note-menu-item"
-                                disabled={readOnly}
-                                checked={note.includeArticle !== false}
-                                onCheckedChange={(checked) =>
-                                  update(note, {
-                                    includeArticle: checked,
-                                    approved: false,
-                                    richText: undefined,
-                                  })
-                                }
-                              >
-                                <ArticleLink size={15} />
-                                Include article card
-                                <DropdownMenu.ItemIndicator>
-                                  <Check size={13} />
-                                </DropdownMenu.ItemIndicator>
-                              </DropdownMenu.CheckboxItem>
-                            )}
-                            {own.some((receipt) => receipt.bufferPostId) && (
-                              <DropdownMenu.Item
-                                asChild
-                                className="note-menu-item"
-                              >
-                                <a
-                                  href={`https://publish.buffer.com/channels/${encodeURIComponent(own[0].channelId)}/schedule`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ArrowUpRight size={15} />
-                                  Open in Buffer
-                                </a>
-                              </DropdownMenu.Item>
-                            )}
-                          </DropdownMenu.Content>
-                        </DropdownMenu.Portal>
-                      </DropdownMenu.Root>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          {!article.notes.some(
-            (note) => filter === "all" || noteState(note, receipts) === filter,
-          ) && <p className="empty-filter">No Notes in this state.</p>}
-        </div>
+            ) && <p className="empty-filter">No Notes in this state.</p>}
+          </div>
+        </TooltipProvider>
         <footer className="post-review">
           <span>
             {approved.length

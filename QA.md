@@ -1,5 +1,13 @@
 # Verification — November 6, 2026
 
+## Feed-style Note design follow-up
+
+- Removed the sidebar’s actual `group-data-[side=left]:border-r` / right-side equivalent utility instead of relying on lower-layer CSS. In the local production build, computed right border is `0px`; the captured screenshot confirms the white line is gone.
+- Real read-only Buffer channel discovery now requests documented `avatar` and `externalLink` fields. The connected Substack name and actual mirrored profile image rendered locally (all four avatar images loaded, natural width 144). No additional login, profile scraping or publication was needed. Multi-channel tests refuse arbitrary attribution; unknown/unavailable photos have an initial fallback and unsafe links/schemes are rejected.
+- Official logo downloaded unchanged from `https://substack.com/img/substack.png`, linked by Substack’s brand page; asset provenance is in `public/brand/README.md`. The original orange mark renders in article cards, not as substuff’s own logo.
+- Actual local desktop screenshot: ignored `artifacts/note-feed-desktop.png`. Verified avatar/byline, quieter card, icon-only approval/edit, no inline Source or repeated To approve status. Show source in the real dropdown highlighted the exact original passage. Approve → read-only → Edit worked; Posted had neither textarea nor Edit action. No overflow or clipped textarea at the observed desktop size.
+- Biome, typecheck, 68 tests and optimized build passed. This pass used a disposable local workspace and synthetic receipts, with read-only channel discovery only. Mobile/device coverage remains open. No new Buffer post or automation consent was created.
+
 ## Plain-text workflow follow-up (supersedes rich-editor behavior below)
 
 - Biome, 65 tests, typecheck, optimized build and isolated real-Neon automation fixtures passed. Fixtures verify opted-out payloads omit metadata, attachment snapshots stay null, stale approval fingerprints fail and already-posted Notes never resend. External publishing was mocked.

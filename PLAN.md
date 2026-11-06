@@ -5,7 +5,7 @@ One article → a few good Notes → a quick edit → an approved week.
 ## Journey
 
 1. **Start:** Continue with Buffer and connect a Substack channel. Add a publication link; first-run onboarding reads the latest post, analyzes its ideas/voice and writes unapproved suggestions. No guest/demo entry, article creation or pasted-article editor.
-2. **Review:** `/posts/[id]` shows compact plain-text Notes beside a hideable, formatted original. Source highlights the supporting passage. To approve is editable; Approved requires Edit; Posted is permanently read-only. Copy, restore and article-card preference live in the three-dot menu. No Note numbers. Autosave.
+2. **Review:** `/posts/[id]` shows feed-style plain-text Notes with the connected Substack avatar/name beside a hideable, formatted original. Show source in the three-dot menu highlights the supporting passage. To approve is editable; icon-only Approve/Edit actions have tooltips. Approved requires Edit; Posted is permanently read-only. Copy, restore and article-card preference also live in the menu. Article previews use the official Substack logo. No Note numbers. Autosave.
 3. **Schedule:** select approved Notes and dates; `/schedule` provides list/calendar views with publishing timezone and automatically reconciled status. The optional original article is a separate attached card, not body text. Editing a queued Note first requires confirmed cancellation. Immediate automation remains a separate explicit opt-in, never part of onboarding.
 4. **Return:** resume the last article and edits. Later, a connected feed brings the next article into the same workflow.
 

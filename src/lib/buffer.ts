@@ -191,6 +191,8 @@ export type BufferChannel = {
   id: string;
   name: string;
   displayName: string | null;
+  avatar?: string;
+  externalLink?: string | null;
   service: string;
   organizationId: string;
   timezone: string;
@@ -221,7 +223,7 @@ export async function substackChannels(workspaceId: string) {
     account.organizations.map(async (organization) => {
       const { channels } = await graphql<{ channels: BufferChannel[] }>(
         token,
-        "query Channels($input: ChannelsInput!) { channels(input: $input) { id name displayName service organizationId timezone isDisconnected isLocked isQueuePaused allowedActions } }",
+        "query Channels($input: ChannelsInput!) { channels(input: $input) { id name displayName avatar externalLink service organizationId timezone isDisconnected isLocked isQueuePaused allowedActions } }",
         { input: { organizationId: organization.id } },
       );
       return channels

@@ -150,6 +150,146 @@
   .note-workflow .post-review {
     padding-top: 16px;
   }
+  .note-workflow:not(.with-source) .notes-pane {
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  .note-workflow .feed-note {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 20px 0 24px;
+    margin-bottom: 12px;
+  }
+  .note-avatar {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--control);
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .note-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .note-byline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 36px;
+  }
+  .note-author {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--text);
+  }
+  .note-byline .note-state {
+    flex-shrink: 0;
+    font-size: 10px;
+  }
+  .note-byline .note-more {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--quiet);
+  }
+  .note-content {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .feed-note .plain-note-editor,
+  .feed-note .note-readonly {
+    padding: 2px 0 8px;
+    min-height: 0;
+    line-height: 1.75;
+  }
+  .note-workflow .feed-note .note-article-card {
+    display: flex;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding: 10px 12px 10px 6px;
+    border-radius: 8px;
+    background: #ffffff04;
+  }
+  .feed-note .note-article-card > span {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .feed-note .note-article-card small {
+    font-size: 10px;
+    margin-top: 3px;
+    color: var(--quiet);
+  }
+  .substack-mark {
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .note-actions {
+    display: flex;
+    align-items: center;
+    padding-top: 7px;
+  }
+  .note-workflow .feed-note .note-primary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .note-primary-action:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .note-author:is(a):hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .note-workflow .feed-note .note-primary-action:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--control);
+    }
+    .note-workflow .feed-note .approve-button:hover:not(:disabled) {
+      color: #91b9aa;
+      background: #91b9aa10;
+    }
+  }
+  @media (max-width: 480px) {
+    .note-workflow .feed-note {
+      grid-template-columns: 32px minmax(0, 1fr);
+      column-gap: 10px;
+    }
+    .note-avatar {
+      width: 32px;
+      height: 32px;
+    }
+    .note-byline {
+      min-height: 32px;
+    }
+  }
   .article-prose mark[data-source-highlight] {
     background: #b4a34840;
     color: var(--text);
