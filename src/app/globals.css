@@ -426,26 +426,8 @@
     font-size: 9px;
     font-weight: 650;
   }
-  .typing-status {
-    align-items: center;
-    color: #647358;
-    display: flex;
-    font-size: 11px;
-    gap: 8px;
-    margin: 16px 2px 0;
-  }
-  .typing-status > span:first-child {
-    animation: typing 1.15s ease-in-out infinite;
-    background: #80a13f;
-    border-radius: 50%;
-    height: 7px;
-    width: 7px;
-  }
   .is-preparing .note-preview {
     animation-play-state: paused;
-  }
-  .is-preparing .typing-status > span:first-child {
-    animation-duration: 0.55s;
   }
   @keyframes note-in {
     from {
@@ -455,12 +437,6 @@
     to {
       opacity: 1;
       transform: translateY(0) scale(1);
-    }
-  }
-  @keyframes typing {
-    50% {
-      opacity: 0.25;
-      transform: scale(0.65);
     }
   }
   .sample-link {
@@ -1235,20 +1211,20 @@
     max-width: 520px;
   }
   .landing-story {
+    align-items: stretch;
+    flex-direction: column;
     min-height: 0;
-    padding: 23px 17px 22px;
     width: 100%;
   }
   .source-post {
-    margin-top: 28px;
+    max-width: none;
+  }
+  .notes-stage {
+    max-width: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .story-status i,
-  .typing-status > span:first-child {
-    animation: none;
-  }
   .note-preview {
     animation: none;
   }
