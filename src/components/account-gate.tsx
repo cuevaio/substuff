@@ -126,12 +126,6 @@ function LandingStory({ busy }: { busy: boolean }) {
       className={`landing-story${busy ? " is-preparing" : ""}`}
       aria-label="How substuff turns a post into Notes"
     >
-      <div className="story-topline">
-        <span>From one good thought</span>
-        <span className="story-status">
-          <i /> Reading your voice
-        </span>
-      </div>
       <article className="source-post">
         <div className="source-meta">
           <span className="source-avatar">S</span>
@@ -152,16 +146,7 @@ function LandingStory({ busy }: { busy: boolean }) {
           Read on Substack <ArrowRight size={13} />
         </span>
       </article>
-      <div className="story-divider" aria-hidden="true">
-        <span />
-        <b>becomes</b>
-        <span />
-      </div>
       <div className="notes-stage">
-        <div className="notes-heading">
-          <span>Ready to review</span>
-          <strong>3 Notes</strong>
-        </div>
         <div className="note-stack">
           {notePreviews.map((note, index) => (
             <article
@@ -169,16 +154,16 @@ function LandingStory({ busy }: { busy: boolean }) {
               key={note}
               style={{ "--note-index": index } as React.CSSProperties}
             >
-              <span className="note-dot" />
+              <div className="note-meta">
+                <span className="note-avatar">S</span>
+                <span>Studio Notes</span>
+                <time>Now</time>
+              </div>
               <p>{note}</p>
-              <span className="note-state">Draft</span>
+              <span className="note-link">Note</span>
             </article>
           ))}
         </div>
-        <p className="typing-status">
-          <span aria-hidden="true" />
-          <span>Finding the words you already meant.</span>
-        </p>
       </div>
     </section>
   );
