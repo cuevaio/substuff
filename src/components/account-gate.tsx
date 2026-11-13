@@ -8,6 +8,12 @@ import { SignOutButton } from "@/components/publication-settings";
 import { Button } from "@/components/ui/button";
 import { hasSubstackChannel } from "@/lib/onboarding";
 
+const notePreviews = [
+  "The best work begins before the first draft.",
+  "A good idea deserves a shorter sentence.",
+  "Keep the thought. Lose the noise.",
+] as const;
+
 export function AccountGate({
   children,
   initialMessage = "",
@@ -31,25 +37,28 @@ export function AccountGate({
     return children;
   const connected = connection.data?.connected;
   return (
-    <div className="welcome-shell">
-      <header className="welcome-header">
+    <div className="landing-shell">
+      <header className="landing-header">
         <Brand />
-        <a href="/privacy" className="text-button">
+        <a href="/privacy" className="landing-privacy">
           Privacy
         </a>
       </header>
-      <main id="main" className="welcome">
-        <div className="welcome-copy">
-          <h1>
-            {connected ? "Connect your Substack." : "Your writing, continued."}
+      <main id="main" className="landing-main">
+        <section className="landing-copy" aria-labelledby="landing-title">
+          <p className="landing-kicker">For writers with something to say</p>
+          <h1 id="landing-title">
+            {connected
+              ? "Connect your Substack."
+              : "One post. A week of Notes."}
           </h1>
-          <p>
+          <p className="landing-description">
             {connected
               ? "Add your Substack channel in Buffer, then come back here."
-              : "Turn your published Substack posts into Notes that sound like you."}
+              : "Turn the thinking you have already published into clear, considered Notes that still sound like you."}
           </p>
           {connected ? (
-            <>
+            <div className="landing-actions">
               <Button asChild>
                 <a
                   href="https://publish.buffer.com/channels"
@@ -67,34 +76,35 @@ export function AccountGate({
                 I’ve connected Substack
               </button>
               <SignOutButton beforeSignOut={async () => {}} />
-            </>
+            </div>
           ) : (
-            <Button
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  await connectBuffer(async () => {});
-                } catch (cause) {
-                  setError(
-                    cause instanceof Error
-                      ? cause.message
-                      : "Couldn’t start sign-in.",
-                  );
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Connecting…" : "Continue with Buffer"}
-              <ArrowRight size={15} />
-            </Button>
+            <div className="landing-actions">
+              <Button
+                className="landing-primary"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await connectBuffer(async () => {});
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error
+                        ? cause.message
+                        : "Couldn’t start sign-in.",
+                    );
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? "Preparing your space…" : "Connect with Buffer"}
+                <ArrowRight size={15} />
+              </Button>
+              <span className="landing-caption">
+                Your writing stays yours. Start with one connection.
+              </span>
+            </div>
           )}
-          <p className="input-caption">
-            {connected
-              ? "Your saved writing stays safe."
-              : "Connect your Substack channel through Buffer to get started."}
-          </p>
           {(error || connection.error || connection.data?.error) && (
             <p className="inline-error" role="alert">
               {error || connection.error?.message || connection.data?.error}{" "}
@@ -103,9 +113,74 @@ export function AccountGate({
               </button>
             </p>
           )}
-        </div>
+        </section>
+        {!connected && <LandingStory busy={busy} />}
       </main>
     </div>
+  );
+}
+
+function LandingStory({ busy }: { busy: boolean }) {
+  return (
+    <section
+      className={`landing-story${busy ? " is-preparing" : ""}`}
+      aria-label="How substuff turns a post into Notes"
+    >
+      <div className="story-topline">
+        <span>From one good thought</span>
+        <span className="story-status">
+          <i /> Reading your voice
+        </span>
+      </div>
+      <article className="source-post">
+        <div className="source-meta">
+          <span className="source-avatar">S</span>
+          <span>Studio Notes</span>
+          <time>Today</time>
+        </div>
+        <h2>Build a practice that leaves room for thinking.</h2>
+        <p>
+          Most creative systems fail because they ask us to begin from nothing,
+          every single time.
+        </p>
+        <div className="source-lines">
+          <i />
+          <i />
+          <i />
+        </div>
+        <span className="source-link">
+          Read on Substack <ArrowRight size={13} />
+        </span>
+      </article>
+      <div className="story-divider" aria-hidden="true">
+        <span />
+        <b>becomes</b>
+        <span />
+      </div>
+      <div className="notes-stage">
+        <div className="notes-heading">
+          <span>Ready to review</span>
+          <strong>3 Notes</strong>
+        </div>
+        <div className="note-stack">
+          {notePreviews.map((note, index) => (
+            <article
+              className="note-preview"
+              key={note}
+              style={{ "--note-index": index } as React.CSSProperties}
+            >
+              <span className="note-dot" />
+              <p>{note}</p>
+              <span className="note-state">Draft</span>
+            </article>
+          ))}
+        </div>
+        <p className="typing-status">
+          <span aria-hidden="true" />
+          <span>Finding the words you already meant.</span>
+        </p>
+      </div>
+    </section>
   );
 }
 
